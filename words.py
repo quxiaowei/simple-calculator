@@ -46,7 +46,7 @@ def debug(fmt, isExpr=False):
     return _inner
 
 
-def space(s: Iterable) -> Tuple[Optional[str], Iterable]:
+def space(s: Iterable) -> Tuple[Iterable, Iterable]:
     for i, c in enumerate(s):
         if not c.isspace():
             return [], s[i:]
@@ -103,7 +103,7 @@ def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 @debug(FMT, isExpr=True)
-def _e2(s: Iterable) -> Tuple[Optional[Iterable], Iterable]:
+def _e2(s: Iterable) -> Tuple[Iterable, Iterable]:
     """
     expression = number [oper number]*
     _e2 is not necessarily
@@ -134,7 +134,7 @@ def _e2(s: Iterable) -> Tuple[Optional[Iterable], Iterable]:
 
 
 @debug(FMT, isExpr=True)
-def _e1(s: Iterable) -> Tuple[Optional[bool], Iterable]:
+def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = ( expression )"""
     res, stream = left_paren(s)
     if not res:
@@ -154,7 +154,7 @@ def _e1(s: Iterable) -> Tuple[Optional[bool], Iterable]:
 
 
 @debug(FMT, isExpr=True)
-def expr(s: Iterable) -> Tuple[Optional[bool], Iterable]:
+def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
     res, stream = _e2(s)  
     # _e2 is not necessarilly, can be replaced by number
     # res, stream = number(s)
@@ -179,7 +179,7 @@ def expr(s: Iterable) -> Tuple[Optional[bool], Iterable]:
     return res, stream
 
 
-def parse(s: Iterable) -> bool:
+def parse(s: Iterable) -> Iterable:
     result, stream = expr(s)
     _, stream = space(stream)
     if result:
