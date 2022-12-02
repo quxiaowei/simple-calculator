@@ -197,38 +197,21 @@ def parse(s: Iterable) -> Iterable:
     _, stream = space(stream)
     if result:
         if stream and stream[0]:
-            print("unvalid expression!")
-            print(_error_message)
+            if DEBUG_FLAG:
+                print("unvalid expression!")
+                print(_error_message)
             return []
         else:
-            print("success!")
+            if DEBUG_FLAG:
+                print("success!")
             return result
     else:
-        print("unvalid expression!")
-        print(_error_message)
+        if DEBUG_FLAG:
+            print("unvalid expression!")
+            print(_error_message)
         return []
 
 
 if __name__ == "__main__":
     DEBUG_FLAG = True
-    # number(str("  123  "))
-    # number(str('  123. '))
-    # number(str('  123.012 '))
-    # number(str(' - 123'))
-    # number(str('  - 123.012'))
-    # number(str(' +  123'))
-    # number(str(' + 123.012'))
-    # number(str(" - 0.012"))
-
-    # parse(' -1.1 + (+11) ')
-    # parse(" ( -1.1 )  ")
-    # parse(' -1.1 + 1.1 + 4.5 ')
-    # parse('((( 1.1 + -1.01 ))')
-    # parse("1 + (( 1.1 + -1.01 ))")
-    # parse("2 + 4 * 4 -4 * 12")
-    # parse("(2 + 4 * 4 -4 * 12) + 1 -2 ")
     parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
-    # parse('((( 1.1 + + -1.01 ))')
-    # parse('((( 1.1 + -s1.01 ))')
-    # parse('((( 1.1. + -1.01 ))')
-    # parse(" -1.1-(343-34)+(1.1+-1.1)")

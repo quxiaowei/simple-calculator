@@ -5,6 +5,8 @@ from typing import List, Callable, Optional
 
 from words import parse
 
+DEBUG_FLAG = False
+
 
 class Operator:
     def __init__(self, w: int, oper: str, func: Optional[Callable]):
@@ -61,17 +63,25 @@ class Chain(object):
         del self._operators[n]
         del self._num[n + 1]
 
-    def result(self) -> List[int]:
+    def result(self) -> List[Decimal]:
         return self._num
 
 
+def calculate(s: str) -> Decimal:
+    chain = Chain(s)
+    while len(chain) != 0:
+        if DEBUG_FLAG:
+            print(chain.result())
+        j = max(range(len(chain)), key=lambda a: chain[a].w)
+        chain.reduce_chain(j)
+
+    return chain.result()[0]
+
+
 if __name__ == "__main__":
+    DEBUG_FLAG = True
+
     raw_string = (
         "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
     )
-
-    chain = Chain(raw_string)
-    while len(chain) != 0:
-        j = max(range(len(chain)), key=lambda a: chain[a].w)
-        chain.reduce_chain(j)
-        print(chain.result())
+    print(str(calculate(raw_string)))
