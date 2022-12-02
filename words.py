@@ -1,49 +1,85 @@
 import re
 import functools
-from decimal import Decimal
-from typing import Iterable, Tuple
+from typing import Callable, Iterable, Tuple
 
 DEBUG_FLAG = False
 
 FMT = "{3} {1!r} \t: {2}"
 
-RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
+_RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
 
 OPERATORS = tuple("- + * / ^")
 
+INDENT_CHARACTOR = "|   "
+
 _debug_offset = ""
 
+_error_message = ""
 
-def debug(fmt, isExpr=False):
+_ExprFunc = Callable[[Iterable], Tuple[Iterable, Iterable]]
+
+
+def debug(fmt, is_expr=False):
     def _inner(func):
         @functools.wraps(func)
         def _inner2(*args, **kwargs):
             global _debug_offset
-            indent_charator = "|   "
-            _debug_offset += indent_charator
-            offset = _debug_offset[len(indent_charator) :]
 
-            if isExpr and DEBUG_FLAG:
-                print(f"{offset}func <{func.__name__}> \t<= {args}")
+            _debug_offset += INDENT_CHARACTOR
+            offset = _debug_offset[len(INDENT_CHARACTOR) :]
+
+            if is_expr and DEBUG_FLAG:
+                print(f"{offset}func <{func.__name__}> \t<= {args[0]}")
 
             result = func(*args, **kwargs)
 
             if DEBUG_FLAG:
                 indicator = "🟢"
+                resultStr = " ".join(result[0])
                 if not result[0]:
                     indicator = "🔴"
+                    resultStr = result[0]
 
                 print(
-                    f"{offset}", fmt.format(args, result[0], func.__name__, indicator)
+                    f"{offset}", fmt.format(args, resultStr, func.__name__, indicator)
                 )
 
-            _debug_offset = _debug_offset[: -len(indent_charator)]
+            _debug_offset = _debug_offset[: -len(INDENT_CHARACTOR)]
 
             return result
 
         return _inner2
 
     return _inner
+
+
+def _all(s: Iterable, *fns: _ExprFunc) -> Tuple[Iterable, Iterable]:
+    """expression = expression1 expression2 ... expressionN
+    s:   String
+    fns: Expression Functions
+    """
+    res = []
+    stream = s
+    for fn in fns:
+        res_tmp, stream = fn(stream)
+        if not res_tmp:
+            return [], s
+        res += res_tmp
+
+    return res, stream
+
+
+def _any(s: Iterable, *fns: _ExprFunc) -> Tuple[Iterable, Iterable]:
+    """expression = expression1 | expression2 | ... | expressionN
+    s:   String
+    fns: Expression Functions
+    """
+    for fn in fns:
+        res1, stream1 = fn(s)
+        if res1:
+            return res1, stream1
+
+    return [], s
 
 
 def space(s: Iterable) -> Tuple[Iterable, Iterable]:
@@ -55,24 +91,26 @@ def space(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 @debug(FMT)
 def number(s: Iterable) -> Tuple[Iterable, Iterable]:
+    global _error_message
+
     res, stream = space(s)
 
-    result = RE_NO.match(stream)
+    result = _RE_NO.match(stream)
 
     if result is None:
+        _error_message = f"expect number: {stream}"
         return res, stream
 
-    groups = result.groups()
+    # groups = result.groups()
     num_str = result.group()
     span = result.span()
-    if groups[0]:
-        return [num_str], stream[span[1] :]
-    else:
-        return [num_str], stream[span[1] :]
+    return [num_str], stream[span[1] :]
 
 
 @debug(FMT)
 def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
+    global _error_message
+
     res, stream = space(s)
 
     for token in OPERATORS:
@@ -80,101 +118,76 @@ def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
             stream = stream[len(token) :]
             res.append(token)
             break
+    else:
+        _error_message = f"expecting operator: {stream}"
 
     return res, stream
 
 
 @debug(FMT)
 def left_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
+    global _error_message
+
     res, stream = space(s)
     if stream and stream[0] == "(":
         res.append("(")
         stream = stream[1:]
+    else:
+        _error_message = f"expect '(': {stream}"
     return res, stream
 
 
 @debug(FMT)
 def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
+    global _error_message
+
     res, stream = space(s)
     if stream and stream[0] == ")":
         res.append(")")
         stream = stream[1:]
+    else:
+        _error_message = f"expect ')': {stream}"
     return res, stream
 
 
-@debug(FMT, isExpr=True)
+@debug(FMT, is_expr=True)
 def _e2(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """
-    expression = number [oper number]*
-    _e2 is not necessarily
-    """
-    res = []
-
-    d1, stream = number(s)
-    if not d1:
+    """expression = number [ operator number ]   # _e2 is not necessarily"""
+    res, stream = number(s)
+    if not res:
         return [], s
-    res += d1
 
     while stream:
-        res1 = []
-        op, s1 = operator(stream)
-        if not op:
+        res_tmp, stream = _all(stream, operator, number)
+        if not res_tmp:
             break
-        res1 += op
-
-        n1, s2 = number(s1)
-        if not n1:
-            break
-        res1 += n1
-
-        stream = s2
-        res += res1
+        res += res_tmp
 
     return res, stream
 
 
-@debug(FMT, isExpr=True)
+@debug(FMT, is_expr=True)
 def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """expression = ( expression )"""
-    res, stream = left_paren(s)
-    if not res:
-        return [], s
+    """expression = '(' expression + ')'"""
 
-    res1, stream = expr(stream)
-    if not res1:
-        return [], s
-    res += res1
-
-    res2, stream = right_paren(stream)
-    if not res2:
-        return [], s
-    res += res2
-
+    res, stream = _all(s, left_paren, expr, right_paren)
     return res, stream
 
 
-@debug(FMT, isExpr=True)
+@debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
-    res, stream = _e2(s)
+    """expression =  _e2 | _e1 [ operator expression ]"""
+
     # _e2 is not necessarilly, can be replaced by number
-    # res, stream = number(s)
+    res, stream = _any(s, _e1, _e2)
     if not res:
-        res, stream = _e1(stream)
-        if not res:
-            return [], stream
+        return [], stream
 
     while stream:
-        res1, s1 = operator(stream)
-        if not res1:
+        res_tmp, stream = _all(stream, operator, expr)
+        if not res_tmp:
             break
-
-        ep, s2 = expr(s1)
-        if not ep:
-            break
-        res1 += ep
-
-        stream = s2
-        res += res1
+        res += res_tmp
 
     return res, stream
 
@@ -184,13 +197,15 @@ def parse(s: Iterable) -> Iterable:
     _, stream = space(stream)
     if result:
         if stream and stream[0]:
-            print(f"unexpected '{stream[0]}'")
+            print("unvalid expression!")
+            print(_error_message)
             return []
         else:
             print("success!")
             return result
     else:
         print("unvalid expression!")
+        print(_error_message)
         return []
 
 
@@ -212,7 +227,7 @@ if __name__ == "__main__":
     # parse("1 + (( 1.1 + -1.01 ))")
     # parse("2 + 4 * 4 -4 * 12")
     # parse("(2 + 4 * 4 -4 * 12) + 1 -2 ")
-    parse("(2 + 4 * 4 -4 * 12) + 1 + ((-2 + 12) ")
+    parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse('((( 1.1 + + -1.01 ))')
     # parse('((( 1.1 + -s1.01 ))')
     # parse('((( 1.1. + -1.01 ))')
