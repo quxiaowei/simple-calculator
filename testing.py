@@ -1,6 +1,6 @@
 import unittest
 from words import number, parse
-from calculate import calculate
+from calculator import calculate
 
 
 def _number(s: str):
