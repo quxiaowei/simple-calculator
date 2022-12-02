@@ -1,7 +1,7 @@
 import re
 import functools
 from decimal import Decimal
-from typing import Iterable, Optional, Tuple, TypeVar
+from typing import Iterable, Tuple
 
 DEBUG_FLAG = False
 
@@ -21,7 +21,7 @@ def debug(fmt, isExpr=False):
             global _debug_offset
             indent_charator = "|   "
             _debug_offset += indent_charator
-            offset = _debug_offset[len(indent_charator):]
+            offset = _debug_offset[len(indent_charator) :]
 
             if isExpr and DEBUG_FLAG:
                 print(f"{offset}func <{func.__name__}> \t<= {args}")
@@ -155,7 +155,7 @@ def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 @debug(FMT, isExpr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
-    res, stream = _e2(s)  
+    res, stream = _e2(s)
     # _e2 is not necessarilly, can be replaced by number
     # res, stream = number(s)
     if not res:
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     # parse("1 + (( 1.1 + -1.01 ))")
     # parse("2 + 4 * 4 -4 * 12")
     # parse("(2 + 4 * 4 -4 * 12) + 1 -2 ")
-    parse("(2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ")
+    parse("(2 + 4 * 4 -4 * 12) + 1 + ((-2 + 12) ")
     # parse('((( 1.1 + + -1.01 ))')
     # parse('((( 1.1 + -s1.01 ))')
     # parse('((( 1.1. + -1.01 ))')
