@@ -10,6 +10,8 @@ _RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
 
 OPERATORS = tuple("- + * / ^")
 
+FUNCS = tuple("sum max min")
+
 INDENT_CHARACTOR = "|   "
 
 _debug_offset = ""
@@ -180,30 +182,34 @@ def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
     return res, stream
 
 
+def _notation(note: str) -> _ExprFunc:
+    def _inner(s: Iterable)-> tuple[Iterable, Iterable]:
+        global _error_message
+
+        res, stream = space(s)
+        if stream and stream[0] == note:
+            res.append(note)
+            stream = stream[len(note) :]
+        else:
+            _error_message = f"expect '{note}': {stream}"
+        return res, stream
+
+    return _inner
+
+
 @debug(FMT)
 def left_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
-    global _error_message
-
-    res, stream = space(s)
-    if stream and stream[0] == "(":
-        res.append("(")
-        stream = stream[1:]
-    else:
-        _error_message = f"expect '(': {stream}"
-    return res, stream
+    return _notation("(")(s)
 
 
 @debug(FMT)
 def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
-    global _error_message
+    return _notation(")")(s)
 
-    res, stream = space(s)
-    if stream and stream[0] == ")":
-        res.append(")")
-        stream = stream[1:]
-    else:
-        _error_message = f"expect ')': {stream}"
-    return res, stream
+
+@debug(FMT)
+def comma(s: Iterable) -> Tuple[Iterable, Iterable]:
+    return _notation(",")(s)
 
 
 @debug(FMT, is_expr=True)
