@@ -16,12 +16,12 @@ class Operator:
 
 
 _dict = {
-    "+": Operator(2, "+", operator.add),
-    "-": Operator(2, "-", operator.sub),
-    "*": Operator(4, "*", operator.mul),
-    "/": Operator(4, "/", operator.truediv),
-    "(": Operator(5, "(", None),
-    ")": Operator(-5, ")", None),
+    "+": Operator(10, "+", operator.add),
+    "-": Operator(10, "-", operator.sub),
+    "*": Operator(20, "*", operator.mul),
+    "/": Operator(20, "/", operator.truediv),
+    "(": Operator(100, "(", None),
+    ")": Operator(-100, ")", None),
 }
 
 _abyss = Operator(-10000, "", None)

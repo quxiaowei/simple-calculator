@@ -53,33 +53,89 @@ def debug(fmt, is_expr=False):
     return _inner
 
 
-def _all(s: Iterable, *fns: _ExprFunc) -> Tuple[Iterable, Iterable]:
+def _all(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 expression2 ... expressionN
-    s:   String
-    fns: Expression Functions
+
+    INPUT:
+        fns: Expression Functions
+    OUTPUT:
+        new expression func
     """
-    res = []
-    stream = s
-    for fn in fns:
-        res_tmp, stream = fn(stream)
-        if not res_tmp:
-            return [], s
-        res += res_tmp
 
-    return res, stream
+    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+        res = []
+        stream = s
+        for fn in fns:
+            res_tmp, stream = fn(stream)
+            if not res_tmp:
+                return [], s
+            res += res_tmp
+
+        return res, stream
+
+    return _inner
 
 
-def _any(s: Iterable, *fns: _ExprFunc) -> Tuple[Iterable, Iterable]:
+def _any(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 | expression2 | ... | expressionN
-    s:   String
-    fns: Expression Functions
-    """
-    for fn in fns:
-        res1, stream1 = fn(s)
-        if res1:
-            return res1, stream1
 
-    return [], s
+    INPUT:
+        fns: expression functions
+    OUTPUT:
+        new expression func
+    """
+
+    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+        for fn in fns:
+            res1, stream1 = fn(s)
+            if res1:
+                return res1, stream1
+
+        return [], s
+
+    return _inner
+
+
+def _do(*fns: _ExprFunc) -> _ExprFunc:
+    """expression = expression1 [ expression2 ... [ expressionN ]...]
+
+    INPUT:
+        fns: expression functions
+    OUTPUT:
+        new expression func
+    """
+
+    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+        res, stream = [], s
+        for fn in fns:
+            res_tmp, stream = fn(stream)
+            if not res_tmp:
+                break
+            res += res_tmp
+
+        return res, stream
+
+    return _inner
+
+
+def _repeat(fn: _ExprFunc) -> _ExprFunc:
+    """expression = expression*
+
+    INPUT:
+        fn: expression function
+    OUTPUT:
+        new expression func
+    """
+
+    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+        res = []
+        res_tmp, stream = fn(s)
+        while res_tmp:
+            res += res_tmp
+            res_tmp, stream = fn(stream)
+        return res, stream
+
+    return _inner
 
 
 def space(s: Iterable) -> Tuple[Iterable, Iterable]:
@@ -152,44 +208,21 @@ def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 @debug(FMT, is_expr=True)
 def _e2(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """expression = number [ operator number ]   # _e2 is not necessarily"""
-    res, stream = number(s)
-    if not res:
-        return [], s
-
-    while stream:
-        res_tmp, stream = _all(stream, operator, number)
-        if not res_tmp:
-            break
-        res += res_tmp
-
-    return res, stream
+    """expression = number [ operator number ]*"""
+    return _do(number, _repeat(_all(operator, number)))(s)
 
 
 @debug(FMT, is_expr=True)
 def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = '(' expression + ')'"""
-
-    res, stream = _all(s, left_paren, expr, right_paren)
-    return res, stream
+    return _all(left_paren, expr, right_paren)(s)
 
 
 @debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression =  _e2 | _e1 [ operator expression ]"""
-
     # _e2 is not necessarilly, can be replaced by number
-    res, stream = _any(s, _e1, _e2)
-    if not res:
-        return [], stream
-
-    while stream:
-        res_tmp, stream = _all(stream, operator, expr)
-        if not res_tmp:
-            break
-        res += res_tmp
-
-    return res, stream
+    return _do(_any(_e1, _e2), _repeat(_all(operator, expr)))(s)
 
 
 def parse(s: Iterable) -> Iterable:
