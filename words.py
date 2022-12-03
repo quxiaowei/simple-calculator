@@ -10,7 +10,7 @@ _RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
 
 OPERATORS = tuple("- + * / ^")
 
-FUNCS = tuple("sum max min")
+FUNCS = {'sum', 'max', 'min'}
 
 INDENT_CHARACTOR = "|   "
 
@@ -122,7 +122,6 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
 
 def _repeat(fn: _ExprFunc) -> _ExprFunc:
     """expression = expression*
-
     INPUT:
         fn: expression function
     OUTPUT:
@@ -159,7 +158,6 @@ def number(s: Iterable) -> Tuple[Iterable, Iterable]:
         _error_message = f"expect number: {stream}"
         return res, stream
 
-    # groups = result.groups()
     num_str = result.group()
     span = result.span()
     return [num_str], stream[span[1] :]
@@ -183,7 +181,7 @@ def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 def _notation(note: str) -> _ExprFunc:
-    def _inner(s: Iterable)-> tuple[Iterable, Iterable]:
+    def _inner(s: Iterable) -> tuple[Iterable, Iterable]:
         global _error_message
 
         res, stream = space(s)
@@ -220,15 +218,44 @@ def _e2(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 @debug(FMT, is_expr=True)
 def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """expression = '(' expression + ')'"""
+    """expression = '(' expression ')'"""
     return _all(left_paren, expr, right_paren)(s)
+
+
+@debug(FMT, is_expr=True)
+def _e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
+    """expression = fn( expression1 [ , expression2 ] [,]  )"""
+
+    def _fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
+        RE_FN = re.compile("([\w]+)\(")
+
+        res, stream = space(s)
+
+        result = RE_FN.match(stream)
+        if result is None:
+            return res, stream
+
+        func_name = result.groups()[0]
+        if not func_name in FUNCS:
+            return res, stream
+
+        return [func_name], stream[len(func_name) :]
+
+    param_list = _all(
+        _fn_name, 
+        left_paren, 
+        expr, 
+        _do(_all(comma, expr), comma), 
+        right_paren
+    )
+    return param_list(s)
 
 
 @debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression =  _e2 | _e1 [ operator expression ]"""
     # _e2 is not necessarilly, can be replaced by number
-    return _do(_any(_e1, _e2), _repeat(_all(operator, expr)))(s)
+    return _do(_any(_e1, _e2, _e_fn), _repeat(_all(operator, expr)))(s)
 
 
 def parse(s: Iterable) -> Iterable:
@@ -253,4 +280,5 @@ def parse(s: Iterable) -> Iterable:
 
 if __name__ == "__main__":
     DEBUG_FLAG = True
-    parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
+    # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
+    parse(" 2.23 * sum( (1+2) , max(1,2))")
