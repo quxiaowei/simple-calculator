@@ -10,7 +10,7 @@ _RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
 
 OPERATORS = tuple("- + * / ^")
 
-FUNCS = {'sum', 'max', 'min'}
+FUNCS = {"sum", "max", "min"}
 
 INDENT_CHARACTOR = "|   "
 
@@ -58,9 +58,9 @@ def debug(fmt, is_expr=False):
 def _all(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 expression2 ... expressionN
 
-    INPUT:
+    Args:
         fns: Expression Functions
-    OUTPUT:
+    return:
         new expression func
     """
 
@@ -81,9 +81,9 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
 def _any(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 | expression2 | ... | expressionN
 
-    INPUT:
+    Args:
         fns: expression functions
-    OUTPUT:
+    return:
         new expression func
     """
 
@@ -101,9 +101,9 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
 def _do(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 [ expression2 ... [ expressionN ]...]
 
-    INPUT:
+    Args:
         fns: expression functions
-    OUTPUT:
+    return:
         new expression func
     """
 
@@ -122,9 +122,10 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
 
 def _repeat(fn: _ExprFunc) -> _ExprFunc:
     """expression = expression*
-    INPUT:
+
+    Args:
         fn: expression function
-    OUTPUT:
+    return:
         new expression func
     """
 
@@ -196,6 +197,23 @@ def _notation(note: str) -> _ExprFunc:
 
 
 @debug(FMT)
+def _fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
+    RE_FN = re.compile("([\w]+)\s*\(")
+
+    res, stream = space(s)
+
+    result = RE_FN.match(stream)
+    if result is None:
+        return res, stream
+
+    func_name = result.groups()[0]
+    if not func_name in FUNCS:
+        return res, stream
+
+    return [func_name], stream[len(func_name) :]
+
+
+@debug(FMT)
 def left_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
     return _notation("(")(s)
 
@@ -223,62 +241,43 @@ def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 @debug(FMT, is_expr=True)
-def _e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """expression = fn( expression1 [ , expression2 ] [,]  )"""
-
-    def _fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
-        RE_FN = re.compile("([\w]+)\(")
-
-        res, stream = space(s)
-
-        result = RE_FN.match(stream)
-        if result is None:
-            return res, stream
-
-        func_name = result.groups()[0]
-        if not func_name in FUNCS:
-            return res, stream
-
-        return [func_name], stream[len(func_name) :]
-
-    param_list = _all(
-        _fn_name, 
-        left_paren, 
-        expr, 
-        _do(_all(comma, expr), comma), 
-        right_paren
-    )
-    return param_list(s)
+def _fn(s: Iterable) -> Tuple[Iterable, Iterable]:
+    """expression = fn( expression1 [ , expression2 ]* [,]  )"""
+    return _all(
+        _fn_name, left_paren, _do(expr, _repeat(_all(comma, expr)), comma), right_paren
+    )(s)
 
 
 @debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
-    """expression =  _e2 | _e1 [ operator expression ]"""
+    """expression =  _e2 | _e1 [ operator expression ]*"""
     # _e2 is not necessarilly, can be replaced by number
-    return _do(_any(_e1, _e2, _e_fn), _repeat(_all(operator, expr)))(s)
+    return _do(_any(_e1, _e2, _fn), _repeat(_all(operator, expr)))(s)
 
 
 def parse(s: Iterable) -> Iterable:
     result, stream = expr(s)
     _, stream = space(stream)
-    if result:
-        if stream and stream[0]:
-            if DEBUG_FLAG:
-                print("unvalid expression!")
-                print(_error_message)
-            return []
-        else:
-            if DEBUG_FLAG:
-                print("success!")
-            return result
-    else:
+    if not result:
         if DEBUG_FLAG:
             print("unvalid expression!")
             print(_error_message)
         return []
 
+    if stream and stream[0]:
+        if DEBUG_FLAG:
+            print("unvalid expression!")
+            print(_error_message)
+        return []
+
+    if DEBUG_FLAG:
+        print("success!")
+    return result
+
 
 if __name__ == "__main__":
     DEBUG_FLAG = True
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
-    parse(" 2.23 * sum( (1+2) , max(1,2))")
+    # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
+    # parse("max(1)")
+    parse(" 2 + ( 2 * sum (1, max(2, (3)), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1")

@@ -40,7 +40,7 @@ class Testing(unittest.TestCase):
         self.assertEqual(_number(" a-123"), [], msg="should Not be Number")
         self.assertEqual(_number(" .123"), [], msg="should Not be Number")
 
-    def test_valid(self):
+    def test_expression(self):
         self.assertTrue(_parse("  123  "), msg="should be Expression")
         self.assertTrue(_parse("  -123  "), msg="should be Expression")
         self.assertTrue(_parse("  123.12  "), msg="should be Expression")
@@ -71,6 +71,38 @@ class Testing(unittest.TestCase):
             ),
             msg="should be Expression",
         )
+        self.assertTrue(
+            _parse(" max(1) "),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" sum(1, 2) "),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" max (1, 2, 3, 4, 5) "),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" max (1, 2, 3, 4, 5 ,) "),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" 1 + sum (1, 2, 3, 4, 5 ,) - 1"),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" 1 + sum (1, 2 - 3, 4, 5 ,) - 1"),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" 1 + sum (1, (2 - 3), 4, 5 ,) - 1"),
+            msg="should be Expression",
+        )
+        self.assertTrue(
+            _parse(" 1 + ( sum (1, max(2, 3), 4, 5 ,)) - 1"),
+            msg="should be Expression",
+        )
 
         self.assertEqual(_parse(" a "), [], msg="should NOT be Expression")
         self.assertEqual(_parse(" - 123 "), [], msg="should NOT be Expression")
@@ -86,6 +118,8 @@ class Testing(unittest.TestCase):
         self.assertEqual(
             _parse(" ( 12 - 3 *  123 ) + (5 * 6))"), [], msg="should NOT be Expression"
         )
+        self.assertEqual(_parse(" ss(1,2)"), [], msg="should NOT be Expression")
+        self.assertEqual(_parse(" sum()"), [], msg="should NOT be Expression")
 
     def test_calculate(self):
         self.assertEqual(
@@ -93,7 +127,44 @@ class Testing(unittest.TestCase):
                 " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
             ),
             "178.0528",
-            msg="should NOT be Expression",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  sum (1) "),
+            "1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  max (1) "),
+            "1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  min (1) "),
+            "1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  sum (1,2) "),
+            "3",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  max (2.3,2) "),
+            "2.3",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("  min (2.3,2.1) "),
+            "2.1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate(
+                " 2 + ( 2 * sum (1, max(2, (3)), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
+            ),
+            "27",
+            msg="should be Equal",
         )
 
 
