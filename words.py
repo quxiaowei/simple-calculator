@@ -43,7 +43,8 @@ def debug(fmt, is_expr=False):
                     resultStr = result[0]
 
                 print(
-                    f"{offset}", fmt.format(args, resultStr, func.__name__, indicator)
+                    f"{offset}",
+                    fmt.format(args, resultStr, func.__name__, indicator),
                 )
 
             _debug_offset = _debug_offset[: -len(INDENT_CHARACTOR)]
@@ -244,7 +245,10 @@ def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
 def _fn(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = fn( expression1 [ , expression2 ]* [,]  )"""
     return _all(
-        _fn_name, left_paren, _do(expr, _repeat(_all(comma, expr)), comma), right_paren
+        _fn_name,
+        left_paren,
+        _do(expr, _repeat(_all(comma, expr)), comma),
+        right_paren,
     )(s)
 
 
@@ -280,4 +284,6 @@ if __name__ == "__main__":
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
     # parse("max(1)")
-    parse(" 2 + ( 2 * sum (1, max(2, (3)), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1")
+    parse(
+        " 2 + ( 2 * sum (1, max(2, (3)), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
+    )
