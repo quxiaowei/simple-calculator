@@ -130,7 +130,7 @@ class Testing(unittest.TestCase):
             msg="should be Equal",
         )
         self.assertEqual(
-            _calculate("  sum (1) "),
+            _calculate("  sum (1,) "),
             "1",
             msg="should be Equal",
         )
@@ -145,12 +145,12 @@ class Testing(unittest.TestCase):
             msg="should be Equal",
         )
         self.assertEqual(
-            _calculate("  sum (1,2) "),
+            _calculate("  sum (1,2,) "),
             "3",
             msg="should be Equal",
         )
         self.assertEqual(
-            _calculate("  max (2.3,2) "),
+            _calculate("  max (2.3, 2,) "),
             "2.3",
             msg="should be Equal",
         )

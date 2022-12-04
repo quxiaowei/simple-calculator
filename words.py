@@ -1,8 +1,8 @@
 import re
-import functools
 from typing import Callable, Iterable, Tuple
 
-DEBUG_FLAG = False
+# from words_debug import open_debug, debug_is_on, debug
+from debug import word_debug, debug_is_on, open_debug
 
 FMT = "{3} {1!r} \t: {2}"
 
@@ -12,48 +12,9 @@ OPERATORS = tuple("- + * / ^")
 
 FUNCS = {"sum", "max", "min"}
 
-INDENT_CHARACTOR = "|   "
-
-_debug_offset = ""
-
 _error_message = ""
 
 _ExprFunc = Callable[[Iterable], Tuple[Iterable, Iterable]]
-
-
-def debug(fmt, is_expr=False):
-    def _inner(func):
-        @functools.wraps(func)
-        def _inner2(*args, **kwargs):
-            global _debug_offset
-
-            _debug_offset += INDENT_CHARACTOR
-            offset = _debug_offset[len(INDENT_CHARACTOR) :]
-
-            if is_expr and DEBUG_FLAG:
-                print(f"{offset}func <{func.__name__}> \t<= {args[0]}")
-
-            result = func(*args, **kwargs)
-
-            if DEBUG_FLAG:
-                indicator = "🟢"
-                resultStr = " ".join(result[0])
-                if not result[0]:
-                    indicator = "🔴"
-                    resultStr = result[0]
-
-                print(
-                    f"{offset}",
-                    fmt.format(args, resultStr, func.__name__, indicator),
-                )
-
-            _debug_offset = _debug_offset[: -len(INDENT_CHARACTOR)]
-
-            return result
-
-        return _inner2
-
-    return _inner
 
 
 def _all(*fns: _ExprFunc) -> _ExprFunc:
@@ -90,11 +51,11 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
 
     def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
         for fn in fns:
-            res1, stream1 = fn(s)
-            if res1:
-                return res1, stream1
+            res, stream = fn(s)
+            if res:
+                return res, stream
 
-        return [], s
+        return res, stream
 
     return _inner
 
@@ -121,21 +82,27 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _repeat(fn: _ExprFunc) -> _ExprFunc:
+def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
     """expression = expression*
 
     Args:
         fn: expression function
+        at_least_once: if True ( expression = expression+ )
     return:
         new expression func
     """
 
     def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
         res = []
+
         res_tmp, stream = fn(s)
         while res_tmp:
             res += res_tmp
             res_tmp, stream = fn(stream)
+
+        if not res and not at_least_once:
+            res.append([])
+
         return res, stream
 
     return _inner
@@ -148,7 +115,7 @@ def space(s: Iterable) -> Tuple[Iterable, Iterable]:
     return [], []
 
 
-@debug(FMT)
+@word_debug(FMT)
 def number(s: Iterable) -> Tuple[Iterable, Iterable]:
     global _error_message
 
@@ -165,7 +132,7 @@ def number(s: Iterable) -> Tuple[Iterable, Iterable]:
     return [num_str], stream[span[1] :]
 
 
-@debug(FMT)
+@word_debug(FMT)
 def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
     global _error_message
 
@@ -182,13 +149,16 @@ def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
     return res, stream
 
 
-def _notation(note: str) -> _ExprFunc:
+def _notation(note: str, drop=False) -> _ExprFunc:
     def _inner(s: Iterable) -> tuple[Iterable, Iterable]:
         global _error_message
 
         res, stream = space(s)
         if stream and stream[0] == note:
-            res.append(note)
+            if drop:
+                res.append([])
+            else:
+                res.append(note)
             stream = stream[len(note) :]
         else:
             _error_message = f"expect '{note}': {stream}"
@@ -197,8 +167,8 @@ def _notation(note: str) -> _ExprFunc:
     return _inner
 
 
-@debug(FMT)
-def _fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
+@word_debug(FMT)
+def fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
     RE_FN = re.compile("([\w]+)\s*\(")
 
     res, stream = space(s)
@@ -214,76 +184,84 @@ def _fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
     return [func_name], stream[len(func_name) :]
 
 
-@debug(FMT)
+@word_debug(FMT)
 def left_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
     return _notation("(")(s)
 
 
-@debug(FMT)
+@word_debug(FMT)
 def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
     return _notation(")")(s)
 
 
-@debug(FMT)
+@word_debug(FMT)
 def comma(s: Iterable) -> Tuple[Iterable, Iterable]:
     return _notation(",")(s)
 
 
-@debug(FMT, is_expr=True)
-def _e2(s: Iterable) -> Tuple[Iterable, Iterable]:
+@word_debug(FMT)
+def trailing_comma(s: Iterable) -> Tuple[Iterable, Iterable]:
+    return _notation(",", drop=True)(s)
+
+
+@word_debug(FMT, is_expr=True)
+def e_2(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = number [ operator number ]*"""
     return _do(number, _repeat(_all(operator, number)))(s)
 
 
-@debug(FMT, is_expr=True)
-def _e1(s: Iterable) -> Tuple[Iterable, Iterable]:
+@word_debug(FMT, is_expr=True)
+def e_1(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = '(' expression ')'"""
     return _all(left_paren, expr, right_paren)(s)
 
 
-@debug(FMT, is_expr=True)
-def _fn(s: Iterable) -> Tuple[Iterable, Iterable]:
+@word_debug(FMT, is_expr=True)
+def e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression = fn( expression1 [ , expression2 ]* [,]  )"""
     return _all(
-        _fn_name,
+        fn_name,
         left_paren,
-        _do(expr, _repeat(_all(comma, expr)), comma),
+        _do(expr, _repeat(_all(comma, expr)), trailing_comma),
         right_paren,
     )(s)
 
 
-@debug(FMT, is_expr=True)
+@word_debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression =  _e2 | _e1 [ operator expression ]*"""
     # _e2 is not necessarilly, can be replaced by number
-    return _do(_any(_e1, _e2, _fn), _repeat(_all(operator, expr)))(s)
+    return _do(_any(e_1, e_2, e_fn), _repeat(_all(operator, expr)))(s)
 
 
 def parse(s: Iterable) -> Iterable:
     result, stream = expr(s)
+    result = [item for item in result if item]
     _, stream = space(stream)
     if not result:
-        if DEBUG_FLAG:
+        if debug_is_on():
             print("unvalid expression!")
             print(_error_message)
         return []
 
     if stream and stream[0]:
-        if DEBUG_FLAG:
+        if debug_is_on():
             print("unvalid expression!")
             print(_error_message)
         return []
 
-    if DEBUG_FLAG:
+    if debug_is_on():
         print("success!")
     return result
 
 
 if __name__ == "__main__":
-    DEBUG_FLAG = True
+    open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
     # parse("max(1)")
-    parse(
-        " 2 + ( 2 * sum (1, max(2, (3)), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
-    )
+    # parse("max(1,)")
+    parse("max(1, 2,)")
+    # parse(
+    #     " 2 + ( 2 * sum (1, max(2, (3), ), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
+    # )
