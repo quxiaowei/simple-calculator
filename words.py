@@ -1,7 +1,6 @@
 import re
 from typing import Callable, Iterable, Tuple
 
-# from words_debug import open_debug, debug_is_on, debug
 from debug import word_debug, debug_is_on, open_debug
 
 FMT = "{3} {1!r} \t: {2}"
@@ -230,7 +229,7 @@ def e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
 @word_debug(FMT, is_expr=True)
 def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
     """expression =  _e2 | _e1 [ operator expression ]*"""
-    # _e2 is not necessarilly, can be replaced by number
+    # _e2 is not necessary, can be replaced by number
     return _do(_any(e_1, e_2, e_fn), _repeat(_all(operator, expr)))(s)
 
 
