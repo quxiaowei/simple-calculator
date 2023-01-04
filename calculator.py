@@ -1,5 +1,6 @@
 import operator
 from copy import deepcopy
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Callable, Optional
 
@@ -11,11 +12,11 @@ DEBUG_FLAG = False
 FUNCS = {"sum", "max", "min"}
 
 
+@dataclass
 class Operator:
-    def __init__(self, w: int, oper: str, func: Optional[Callable]):
-        self.w = w
-        self.operator = oper
-        self.func = func
+    w: int
+    operator: str
+    func: Optional[Callable]
 
 
 _dict = {
@@ -38,7 +39,7 @@ _abyss = Operator(-10000, "", None)
 class Chain(object):
     def __init__(self, raw: str):
         self._operators: List[Operator] = []
-        self._num: List[Decimal] = []
+        self._num: List[Optional[Decimal]] = []
 
         base = 0
 
@@ -101,11 +102,11 @@ class Chain(object):
             del self._operators[n]
             del self._num[n + 1]
 
-    def result(self) -> List[Decimal]:
+    def result(self) -> List[Optional[Decimal]]:
         return self._num
 
 
-def calculate(s: str) -> Decimal:
+def calculate(s: str) -> Optional[Decimal]:
     chain = Chain(s)
     while len(chain) != 0:
         if DEBUG_FLAG:

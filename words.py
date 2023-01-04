@@ -13,7 +13,7 @@ FUNCS = {"sum", "max", "min"}
 
 _error_message = ""
 
-_ExprFunc = Callable[[Iterable], Tuple[Iterable, Iterable]]
+_ExprFunc = Callable[[str], Tuple[Iterable, str]]
 
 
 def _all(*fns: _ExprFunc) -> _ExprFunc:
@@ -25,7 +25,7 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+    def _inner(s: str) -> Tuple[Iterable, str]:
         res = []
         stream = s
         for fn in fns:
@@ -48,9 +48,10 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+    def _inner(s: str) -> Tuple[Iterable, str]:
+        res, stream = [], s
         for fn in fns:
-            res, stream = fn(s)
+            res, stream = fn(stream)
             if res:
                 return res, stream
 
@@ -68,7 +69,7 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+    def _inner(s: str) -> Tuple[Iterable, str]:
         res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
@@ -91,7 +92,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: Iterable) -> Tuple[Iterable, Iterable]:
+    def _inner(s: str) -> Tuple[Iterable, str]:
         res = []
 
         res_tmp, stream = fn(s)
@@ -107,15 +108,15 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
     return _inner
 
 
-def space(s: Iterable) -> Tuple[Iterable, Iterable]:
+def space(s: str) -> Tuple[Iterable, str]:
     for i, c in enumerate(s):
         if not c.isspace():
             return [], s[i:]
-    return [], []
+    return [], ""
 
 
 @word_debug(FMT)
-def number(s: Iterable) -> Tuple[Iterable, Iterable]:
+def number(s: str) -> Tuple[Iterable, str]:
     global _error_message
 
     res, stream = space(s)
@@ -132,7 +133,7 @@ def number(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 @word_debug(FMT)
-def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
+def operator(s: str) -> Tuple[Iterable, str]:
     global _error_message
 
     res, stream = space(s)
@@ -149,7 +150,7 @@ def operator(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 def _notation(note: str, drop=False) -> _ExprFunc:
-    def _inner(s: Iterable) -> tuple[Iterable, Iterable]:
+    def _inner(s: str) -> tuple[Iterable, str]:
         global _error_message
 
         res, stream = space(s)
@@ -167,7 +168,7 @@ def _notation(note: str, drop=False) -> _ExprFunc:
 
 
 @word_debug(FMT)
-def fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
+def fn_name(s: str) -> Tuple[Iterable, str]:
     RE_FN = re.compile("([\w]+)\s*\(")
 
     res, stream = space(s)
@@ -184,39 +185,39 @@ def fn_name(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 @word_debug(FMT)
-def left_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
+def left_paren(s: str) -> Tuple[Iterable, str]:
     return _notation("(")(s)
 
 
 @word_debug(FMT)
-def right_paren(s: Iterable) -> Tuple[Iterable, Iterable]:
+def right_paren(s: str) -> Tuple[Iterable, str]:
     return _notation(")")(s)
 
 
 @word_debug(FMT)
-def comma(s: Iterable) -> Tuple[Iterable, Iterable]:
+def comma(s: str) -> Tuple[Iterable, str]:
     return _notation(",")(s)
 
 
 @word_debug(FMT)
-def trailing_comma(s: Iterable) -> Tuple[Iterable, Iterable]:
+def trailing_comma(s: str) -> Tuple[Iterable, str]:
     return _notation(",", drop=True)(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_2(s: Iterable) -> Tuple[Iterable, Iterable]:
+def e_2(s: str) -> Tuple[Iterable, str]:
     """expression = number [ operator number ]*"""
     return _do(number, _repeat(_all(operator, number)))(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_1(s: Iterable) -> Tuple[Iterable, Iterable]:
+def e_1(s: str) -> Tuple[Iterable, str]:
     """expression = '(' expression ')'"""
     return _all(left_paren, expr, right_paren)(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
+def e_fn(s: str) -> Tuple[Iterable, str]:
     """expression = fn( expression1 [ , expression2 ]* [,]  )"""
     return _all(
         fn_name,
@@ -227,13 +228,13 @@ def e_fn(s: Iterable) -> Tuple[Iterable, Iterable]:
 
 
 @word_debug(FMT, is_expr=True)
-def expr(s: Iterable) -> Tuple[Iterable, Iterable]:
+def expr(s: str) -> Tuple[Iterable, str]:
     """expression =  _e2 | _e1 [ operator expression ]*"""
     # _e2 is not necessary, can be replaced by number
     return _do(_any(e_1, e_2, e_fn), _repeat(_all(operator, expr)))(s)
 
 
-def parse(s: Iterable) -> Iterable:
+def parse(s: str) -> Iterable:
     result, stream = expr(s)
     result = [item for item in result if item]
     _, stream = space(stream)
@@ -243,7 +244,7 @@ def parse(s: Iterable) -> Iterable:
             print(_error_message)
         return []
 
-    if stream and stream[0]:
+    if stream and len(stream) > 0:
         if debug_is_on():
             print("unvalid expression!")
             print(_error_message)
@@ -260,7 +261,8 @@ if __name__ == "__main__":
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
     # parse("max(1)")
     # parse("max(1,)")
-    parse("max(1, 2,)")
+    # parse("max(1, 2,)")
     # parse(
     #     " 2 + ( 2 * sum (1, max(2, (3), ), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
     # )
+    parse("  234  ")
