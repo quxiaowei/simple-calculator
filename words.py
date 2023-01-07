@@ -16,6 +16,10 @@ _error_message = ""
 _ExprFunc = Callable[[str], Tuple[Iterable, str]]
 
 
+if __name__ == "__main__":
+    open_debug()
+
+
 def _all(*fns: _ExprFunc) -> _ExprFunc:
     """expression = expression1 expression2 ... expressionN
 
@@ -256,7 +260,7 @@ def parse(s: str) -> Iterable:
 
 
 if __name__ == "__main__":
-    open_debug()
+    # open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
     # parse("max(1)")

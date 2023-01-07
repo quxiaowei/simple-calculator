@@ -18,6 +18,12 @@ def debug_is_on():
 
 def word_debug(fmt, is_expr=False):
     def _inner(func):
+
+        #### for less recursive layers,
+        #### remove debug wrapper, when debug mode is off.
+        if _DEBUG_FLAG == False:
+            return func
+
         @functools.wraps(func)
         def _inner2(*args, **kwargs):
             global _debug_offset
