@@ -157,15 +157,17 @@ def _notation(note: str, drop=False) -> _ExprFunc:
     def _inner(s: str) -> tuple[Iterable, str]:
         global _error_message
 
+        l_note = note.strip()
+
         res, stream = space(s)
-        if stream and stream[0] == note:
+        if stream and stream[: len(l_note)] == note:
             if drop:
                 res.append([])
             else:
-                res.append(note)
-            stream = stream[len(note) :]
+                res.append(l_note)
+            stream = stream[len(l_note) :]
         else:
-            _error_message = f"expect '{note}': {stream}"
+            _error_message = f"expect '{l_note}': {stream}"
         return res, stream
 
     return _inner
