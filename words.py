@@ -1,7 +1,12 @@
 import re
 from typing import List, Union, Callable, Tuple
 
-from .debug import word_debug, debug_is_on, open_debug
+print("name:", __name__, "package:", type(__package__))
+if __name__ == "__main__" or not __package__:
+    from debug import word_debug, debug_is_on, open_debug
+else:
+    from .debug import word_debug, debug_is_on, open_debug
+
 
 FMT = "{3} {1!r} \t: {2}"
 
@@ -22,7 +27,7 @@ ElementStream = List[Element]
 _ExprFunc = Callable[[str], Tuple[ElementStream, str]]
 
 if __name__ == "__main__":
-    # open_debug()
+    open_debug()
     pass
 
 

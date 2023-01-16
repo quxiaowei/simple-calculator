@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Callable, Optional
 
-from .words import parse
+if __name__ == "__main__" or not __package__:
+    from words import parse
+else:
+    from .words import parse
 
 DEBUG_FLAG = False
 
