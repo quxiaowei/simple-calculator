@@ -1,11 +1,13 @@
 import re
-from typing import Callable, Iterable, Tuple
+from typing import List, Union, Callable, Tuple
 
 from debug import word_debug, debug_is_on, open_debug
 
 FMT = "{3} {1!r} \t: {2}"
 
 _RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
+_RE_HEX_NO = re.compile("0x[0-9,a-f,A-F]+(\.[0-9,a-f,A-F]+)?")
+_RE_OCT_NO = re.compile("0o[0-7]+(\.[0-7]+)?")
 
 OPERATORS = tuple("- + * / ^")
 
@@ -13,11 +15,15 @@ FUNCS = {"sum", "max", "min"}
 
 _error_message = ""
 
-_ExprFunc = Callable[[str], Tuple[Iterable, str]]
+Element = Union[str, List]
 
+ElementStream = List[Element]
+
+_ExprFunc = Callable[[str], Tuple[ElementStream, str]]
 
 if __name__ == "__main__":
-    open_debug()
+    # open_debug()
+    pass
 
 
 def _all(*fns: _ExprFunc) -> _ExprFunc:
@@ -29,7 +35,7 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: str) -> Tuple[Iterable, str]:
+    def _inner(s: str) -> Tuple[ElementStream, str]:
         res = []
         stream = s
         for fn in fns:
@@ -52,7 +58,7 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: str) -> Tuple[Iterable, str]:
+    def _inner(s: str) -> Tuple[ElementStream, str]:
         res, stream = [], s
         for fn in fns:
             res, stream = fn(stream)
@@ -73,7 +79,7 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: str) -> Tuple[Iterable, str]:
+    def _inner(s: str) -> Tuple[ElementStream, str]:
         res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
@@ -96,7 +102,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
         new expression func
     """
 
-    def _inner(s: str) -> Tuple[Iterable, str]:
+    def _inner(s: str) -> Tuple[ElementStream, str]:
         res = []
 
         res_tmp, stream = fn(s)
@@ -112,7 +118,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
     return _inner
 
 
-def space(s: str) -> Tuple[Iterable, str]:
+def space(s: str) -> Tuple[ElementStream, str]:
     for i, c in enumerate(s):
         if not c.isspace():
             return [], s[i:]
@@ -120,12 +126,18 @@ def space(s: str) -> Tuple[Iterable, str]:
 
 
 @word_debug(FMT)
-def number(s: str) -> Tuple[Iterable, str]:
+def number(s: str) -> Tuple[ElementStream, str]:
     global _error_message
 
     res, stream = space(s)
 
-    result = _RE_NO.match(stream)
+    match stream[:2]:
+        case "0x":
+            result = _RE_HEX_NO.match(stream)
+        case "0o":
+            result = _RE_OCT_NO.match(stream)
+        case _:
+            result = _RE_NO.match(stream)
 
     if result is None:
         _error_message = f"expect number: {stream}"
@@ -137,7 +149,7 @@ def number(s: str) -> Tuple[Iterable, str]:
 
 
 @word_debug(FMT)
-def operator(s: str) -> Tuple[Iterable, str]:
+def operator(s: str) -> Tuple[ElementStream, str]:
     global _error_message
 
     res, stream = space(s)
@@ -154,7 +166,7 @@ def operator(s: str) -> Tuple[Iterable, str]:
 
 
 def _notation(note: str, drop=False) -> _ExprFunc:
-    def _inner(s: str) -> tuple[Iterable, str]:
+    def _inner(s: str) -> tuple[ElementStream, str]:
         global _error_message
 
         l_note = note.strip()
@@ -174,7 +186,7 @@ def _notation(note: str, drop=False) -> _ExprFunc:
 
 
 @word_debug(FMT)
-def fn_name(s: str) -> Tuple[Iterable, str]:
+def fn_name(s: str) -> Tuple[ElementStream, str]:
     RE_FN = re.compile("([\w]+)\s*\(")
 
     res, stream = space(s)
@@ -187,43 +199,43 @@ def fn_name(s: str) -> Tuple[Iterable, str]:
     if not func_name in FUNCS:
         return res, stream
 
-    return [func_name], stream[len(func_name) :]
+    return [str(func_name)], stream[len(func_name) :]
 
 
 @word_debug(FMT)
-def left_paren(s: str) -> Tuple[Iterable, str]:
+def left_paren(s: str) -> Tuple[ElementStream, str]:
     return _notation("(")(s)
 
 
 @word_debug(FMT)
-def right_paren(s: str) -> Tuple[Iterable, str]:
+def right_paren(s: str) -> Tuple[ElementStream, str]:
     return _notation(")")(s)
 
 
 @word_debug(FMT)
-def comma(s: str) -> Tuple[Iterable, str]:
+def comma(s: str) -> Tuple[ElementStream, str]:
     return _notation(",")(s)
 
 
 @word_debug(FMT)
-def trailing_comma(s: str) -> Tuple[Iterable, str]:
+def trailing_comma(s: str) -> Tuple[ElementStream, str]:
     return _notation(",", drop=True)(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_2(s: str) -> Tuple[Iterable, str]:
+def e_2(s: str) -> Tuple[ElementStream, str]:
     """expression = number [ operator number ]*"""
     return _do(number, _repeat(_all(operator, number)))(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_1(s: str) -> Tuple[Iterable, str]:
+def e_1(s: str) -> Tuple[ElementStream, str]:
     """expression = '(' expression ')'"""
     return _all(left_paren, expr, right_paren)(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_fn(s: str) -> Tuple[Iterable, str]:
+def e_fn(s: str) -> Tuple[ElementStream, str]:
     """expression = fn( expression1 [ , expression2 ]* [,]  )"""
     return _all(
         fn_name,
@@ -234,13 +246,13 @@ def e_fn(s: str) -> Tuple[Iterable, str]:
 
 
 @word_debug(FMT, is_expr=True)
-def expr(s: str) -> Tuple[Iterable, str]:
+def expr(s: str) -> Tuple[ElementStream, str]:
     """expression =  _e2 | _e1 [ operator expression ]*"""
     # _e2 is not necessary, can be replaced by number
     return _do(_any(e_1, e_2, e_fn), _repeat(_all(operator, expr)))(s)
 
 
-def parse(s: str) -> Iterable:
+def parse(s: str) -> ElementStream:
     result, stream = expr(s)
     result = [item for item in result if item]
     _, stream = space(stream)
@@ -261,14 +273,23 @@ def parse(s: str) -> Iterable:
     return result
 
 
+def format(s: str) -> str:
+    str_list = parse(s)
+    if not str_list:
+        return ""
+
+    return " ".join(str_list)
+
+
 if __name__ == "__main__":
     # open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
+    print(format(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"))
     # parse("max(1)")
     # parse("max(1,)")
     # parse("max(1, 2,)")
     # parse(
     #     " 2 + ( 2 * sum (1, max(2, (3), ), sum(1,1+1+1), min((5), 6, 7, 8 ))) - 1"
     # )
-    parse("  234  ")
+    # parse("  234  ")
