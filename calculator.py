@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, Callable, Optional
 
-from words import parse
+from .words import parse
 
 DEBUG_FLAG = False
 

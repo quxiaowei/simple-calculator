@@ -1,7 +1,7 @@
 import re
 from typing import List, Union, Callable, Tuple
 
-from debug import word_debug, debug_is_on, open_debug
+from .debug import word_debug, debug_is_on, open_debug
 
 FMT = "{3} {1!r} \t: {2}"
 
