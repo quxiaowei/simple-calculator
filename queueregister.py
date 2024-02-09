@@ -2,7 +2,7 @@ from collections import deque
 
 DEBUG = False
 
-NAME_STR = "abcdcfghighlmnopqrstuvwxyz"
+NAME_STR = "abcdefghijklmnopqrstuvwxyz"
 NAME_SET = set(NAME_STR)
 
 class QueueRegister:
