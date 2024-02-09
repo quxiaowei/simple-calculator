@@ -50,4 +50,3 @@ def icalculate() -> None:
 if __name__ == "__main__":
     DEBUG = True
     icalculate()
-
