@@ -1,7 +1,6 @@
 import re
 from typing import List, Union, Callable, Tuple
 
-print("name:", __name__, "package:", type(__package__))
 if __name__ == "__main__" or not __package__:
     from debug import word_debug, debug_is_on, open_debug
 else:
@@ -185,6 +184,7 @@ def _notation(note: str, drop=False) -> _ExprFunc:
             stream = stream[len(l_note) :]
         else:
             _error_message = f"expect '{l_note}': {stream}"
+
         return res, stream
 
     return _inner
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     # open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
-    print(format(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"))
+    format(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
     # parse("max(1)")
     # parse("max(1,)")
     # parse("max(1, 2,)")

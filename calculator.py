@@ -9,8 +9,8 @@ if __name__ == "__main__" or not __package__:
 else:
     from .words import parse
 
-DEBUG_FLAG = False
 
+DEBUG_FLAG = False
 
 FUNCS = {"sum", "max", "min"}
 
@@ -22,7 +22,7 @@ class Operator:
     func: Optional[Callable]
 
 
-_dict = {
+_oper_dict = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
     "*": Operator(20, "*", operator.mul),
@@ -46,18 +46,22 @@ class Chain(object):
 
         base = 0
 
-        for word in parse(raw):  # raw.split():
+        words = parse(raw)
+        if words is None or words == []:
+            raise ValueError("not valid")
+
+        for word in words:  # raw.split():
             if word in set("()"):  # ( )
-                base += _dict[word].w
+                base += _oper_dict[word].w
 
             elif word in FUNCS:  # functions
-                op = deepcopy(_dict[word])
+                op = deepcopy(_oper_dict[word])
                 op.w += base
                 self._operators.append(op)
                 self._num.append(None)
 
-            elif word in set(_dict.keys()):  # operators
-                op = deepcopy(_dict[word])
+            elif word in set(_oper_dict.keys()):  # operators
+                op = deepcopy(_oper_dict[word])
                 op.w += base
                 self._operators.append(op)
 
@@ -124,5 +128,6 @@ if __name__ == "__main__":
     DEBUG_FLAG = True
 
     raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
+    print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))
