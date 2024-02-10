@@ -2,7 +2,7 @@ import operator
 from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Callable, Optional
+from typing import Callable
 
 if __name__ == "__main__" or not __package__:
     from words import parse
@@ -19,7 +19,7 @@ FUNCS = {"sum", "max", "min"}
 class Operator:
     w: int
     operator: str
-    func: Optional[Callable]
+    func: Callable | None
 
 
 _oper_dict = {
@@ -41,8 +41,8 @@ _abyss = Operator(-10000, "", None)
 
 class Chain(object):
     def __init__(self, raw: str):
-        self._operators: List[Operator] = []
-        self._num: List[Optional[Decimal]] = []
+        self._operators: list[Operator] = []
+        self._nums: list[None | Decimal] = []
 
         base = 0
 
@@ -58,7 +58,7 @@ class Chain(object):
                 op = deepcopy(_oper_dict[word])
                 op.w += base
                 self._operators.append(op)
-                self._num.append(None)
+                self._nums.append(None)
 
             elif word in set(_oper_dict.keys()):  # operators
                 op = deepcopy(_oper_dict[word])
@@ -67,12 +67,12 @@ class Chain(object):
 
             else:
                 num = Decimal(word)  # number(word)
-                self._num.append(num)
+                self._nums.append(num)
 
         if base != 0:
             pass  # error
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._operators)
 
     def __getitem__(self, n) -> Operator:
@@ -82,9 +82,9 @@ class Chain(object):
 
     def _delete(self, n: int):
         del self._operators[n]
-        del self._num[n + 1]
+        del self._nums[n + 1]
 
-    def reduce_chain(self, n):
+    def reduce_chain(self, n: int):
         op = self._operators[n]
 
         if op.operator == ",":
@@ -92,28 +92,28 @@ class Chain(object):
 
         elif op.operator in FUNCS:  # functions
             values = []
-            values.append(self._num[n + 1])
+            values.append(self._nums[n + 1])
             self._delete(n)
             while (
                 n < len(self._operators)
                 and self._operators[n].operator == ","
                 and self._operators[n].w == op.w
             ):
-                values.append(self._num[n + 1])
+                values.append(self._nums[n + 1])
                 self._delete(n)
 
-            self._num[n] = op.func(values)
+            self._nums[n] = op.func(values)
 
         else:  # binary operators
-            self._num[n] = op.func(self._num[n], self._num[n + 1])
+            self._nums[n] = op.func(self._nums[n], self._nums[n + 1])
             del self._operators[n]
-            del self._num[n + 1]
+            del self._nums[n + 1]
 
-    def result(self) -> List[Optional[Decimal]]:
-        return self._num
+    def result(self) -> list[Decimal | None]:
+        return self._nums
 
 
-def calculate(s: str) -> Optional[Decimal]:
+def calculate(s: str) -> Decimal | None:
     chain = Chain(s)
     while len(chain) != 0:
         if DEBUG_FLAG:

@@ -1,4 +1,7 @@
 from collections import deque
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
 
 DEBUG = False
 
@@ -6,26 +9,24 @@ NAME_STR = "abcdefghijklmnopqrstuvwxyz"
 NAME_SET = set(NAME_STR)
 
 
-class QueueRegister:
+class QueueRegister(Generic[T]):
     def __init__(self):
         self._registor = dict()
         self._registor_name = deque(NAME_STR)
 
         self._top_cursor = "a"
 
-    def next_cursor(self):
-        DEBUG and print("---fr---", self._top_cursor)
+    def goto_next(self):
         self._registor_name.rotate(-1)
         self._top_cursor = self._registor_name[0]
-        DEBUG and print("---to---", self._top_cursor)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> None | T:
         return self._read(key)
 
-    def __setitem__(self, key, new_value):
+    def __setitem__(self, key: str, new_value: None | T):
         self.write(new_value, key)
 
-    def _read(self, key):
+    def _read(self, key: str) -> None | T:
         if key in self._registor:
             return self._registor[key]
         return None
@@ -45,10 +46,10 @@ class QueueRegister:
 
         return True
 
-    def get_cursor(self):
+    def get_cursor(self) -> str:
         return self._top_cursor
 
-    def write(self, value, key=None):
+    def write(self, value: None | T, key: None | str = None):
         l_key = key if key else self._top_cursor
         try:
             self._registor_name.index(l_key)
