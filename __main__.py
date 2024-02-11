@@ -47,8 +47,8 @@ else:
     try:
         result = calculate(string_input)
     except:
-        print("error, check your input")
-        sys.stdout.flush()
+        print("error: check your input", file=sys.stderr)
+        sys.stderr.flush()
     else:
         print(f"result: { result }")
         sys.stdout.flush()

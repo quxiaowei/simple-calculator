@@ -9,11 +9,9 @@ else:
 
 FMT = "{3} {1!r} \t: {2}"
 
-_RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?")
-# _RE_HEX_NO = re.compile("0x[0-9,a-f,A-F]+(\.[0-9,a-f,A-F]+)?")
-_RE_HEX_NO = re.compile("0x[0-9,a-f,A-F]+")
-# _RE_OCT_NO = re.compile("0o[0-7]+(\.[0-7]+)?")
-_RE_OCT_NO = re.compile("0o[0-7]+")
+_RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
+_RE_HEX_NO = re.compile("0[Xx][0-9,a-f,A-F]+")
+_RE_OCT_NO = re.compile("0[Oo][0-7]+")
 
 OPERATORS = tuple("- + * / ^")
 

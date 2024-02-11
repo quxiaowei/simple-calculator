@@ -4,64 +4,37 @@
 
 validate and parse expression string
 
-test result:
-
-    func <expr>     <= ('(2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ',)
-    |   func <_e2>  <= ('(2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ',)
-    |   |    🔴 []  : number
-    |    🔴 []      : _e2
-    |   func <_e1>  <= ('(2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ',)
-    |   |    🟢 ['(']       : left_paren
-    |   |   func <expr>     <= ('2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ',)
-    |   |   |   func <_e2>  <= ('2 + 4 * 4 -4 * 12) + 1 + (-2 + 12) ',)
-    |   |   |   |    🟢 ['2']       : number
-    |   |   |   |    🟢 ['+']       : operator
-    |   |   |   |    🟢 ['4']       : number
-    |   |   |   |    🟢 ['*']       : operator
-    |   |   |   |    🟢 ['4']       : number
-    |   |   |   |    🟢 ['-']       : operator
-    |   |   |   |    🟢 ['4']       : number
-    |   |   |   |    🟢 ['*']       : operator
-    |   |   |   |    🟢 ['12']      : number
-    |   |   |   |    🔴 []  : operator
-    |   |   |    🟢 ['2', '+', '4', '*', '4', '-', '4', '*', '12']  : _e2
-    |   |   |    🔴 []      : operator
-    |   |    🟢 ['2', '+', '4', '*', '4', '-', '4', '*', '12']      : expr
-    |   |    🟢 [')']       : right_paren
-    |    🟢 ['(', '2', '+', '4', '*', '4', '-', '4', '*', '12', ')']        : _e1
-    |    🟢 ['+']   : operator
-    |   func <expr>         <= (' 1 + (-2 + 12) ',)
-    |   |   func <_e2>      <= (' 1 + (-2 + 12) ',)
-    |   |   |    🟢 ['1']   : number
-    |   |   |    🟢 ['+']   : operator
-    |   |   |    🔴 []      : number
-    |   |    🟢 ['1']       : _e2
-    |   |    🟢 ['+']       : operator
-    |   |   func <expr>     <= (' (-2 + 12) ',)
-    |   |   |   func <_e2>  <= (' (-2 + 12) ',)
-    |   |   |   |    🔴 []  : number
-    |   |   |    🔴 []      : _e2
-    |   |   |   func <_e1>  <= (' (-2 + 12) ',)
-    |   |   |   |    🟢 ['(']       : left_paren
-    |   |   |   |   func <expr>     <= ('-2 + 12) ',)
-    |   |   |   |   |   func <_e2>  <= ('-2 + 12) ',)
-    |   |   |   |   |   |    🟢 ['-2']      : number
-    |   |   |   |   |   |    🟢 ['+']       : operator
-    |   |   |   |   |   |    🟢 ['12']      : number
-    |   |   |   |   |   |    🔴 []  : operator
-    |   |   |   |   |    🟢 ['-2', '+', '12']       : _e2
-    |   |   |   |   |    🔴 []      : operator
-    |   |   |   |    🟢 ['-2', '+', '12']   : expr
-    |   |   |   |    🟢 [')']       : right_paren
-    |   |   |    🟢 ['(', '-2', '+', '12', ')']     : _e1
-    |   |   |    🔴 []      : operator
-    |   |    🟢 ['(', '-2', '+', '12', ')']         : expr
-    |   |    🔴 []  : operator
-    |    🟢 ['1', '+', '(', '-2', '+', '12', ')']   : expr
-    |    🔴 []      : operator
-    🟢 ['(', '2', '+', '4', '*', '4', '-', '4', '*', '12', ')', '+', '1', '+', '(', '-2', '+', '12', ')']  : expr
-
-
 ### calculate.py
 
 calculate
+
+## 20240211
+
+### add interactive mode in icalculate.py
+
+Results will be recorded in an \[a-z\] register automatically. you can use the `$a` in calcualation subsequently. When the register reach the last one "z", next one result would goto "a" and cover the old value.
+
+`$_` is constantly pointed previous step value.
+
+for example:
+
+```
+>>> 1
+$a: 1
+>>> $a + 2
+$b: 3
+...
+$z: 351
+>>> $z + 1
+$a: 352
+>>> $_ - 1
+$b: 351
+```
+
+### support HEX, OCT, Scientific input
+
+1. HEX: "0x12E", "0X12E" only support integar
+2. OCT: "0o123", "0O123" only support integar
+3. Scientific: "-123.12E-123" or "-123.12e+123"
+
+### add term

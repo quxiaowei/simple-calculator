@@ -1,7 +1,7 @@
 import operator
 from copy import deepcopy
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, setcontext, Context
 from typing import Callable
 
 if __name__ == "__main__" or not __package__:
@@ -13,6 +13,10 @@ else:
 DEBUG_FLAG = False
 
 FUNCS = {"sum", "max", "min"}
+
+setcontext(Context(prec=30))
+
+MIN = Decimal("1e-29")
 
 
 @dataclass
@@ -67,6 +71,9 @@ class Chain(object):
 
             else:
                 num = Decimal(word)  # number(word)
+                if abs(num) <= MIN:
+                    num = Decimal("0")
+
                 self._nums.append(num)
 
         if base != 0:
@@ -102,10 +109,18 @@ class Chain(object):
                 values.append(self._nums[n + 1])
                 self._delete(n)
 
-            self._nums[n] = op.func(values)
+            res = op.func(values)
+            if abs(res) <= MIN:
+                res = Decimal(0)
+
+            self._nums[n] = res
 
         else:  # binary operators
-            self._nums[n] = op.func(self._nums[n], self._nums[n + 1])
+            res = op.func(self._nums[n], self._nums[n + 1])
+            if abs(res) <= MIN:
+                res = Decimal(0)
+
+            self._nums[n] = res
             del self._operators[n]
             del self._nums[n + 1]
 
@@ -116,8 +131,7 @@ class Chain(object):
 def calculate(s: str) -> Decimal | None:
     chain = Chain(s)
     while len(chain) != 0:
-        if DEBUG_FLAG:
-            print(chain.result())
+        DEBUG_FLAG and print(chain.result())
         i = max(range(len(chain)), key=lambda a: chain[a].w)
         chain.reduce_chain(i)
 
