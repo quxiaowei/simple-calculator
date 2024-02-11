@@ -3,9 +3,7 @@
 import argparse
 import sys
 from calculator import calculate
-from icalculator import icalculate
-
-VERSION = "0.0.1"
+from icalculator import icalculate, VERSION
 
 parser = argparse.ArgumentParser(
     prog="qcalc",

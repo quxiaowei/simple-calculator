@@ -12,9 +12,9 @@ calculate
 
 ### add interactive mode in icalculate.py
 
-Results will be recorded in an \[a-z\] register automatically. you can use the `$a` in subsequent calculation. When reaching the last one "z", the register would go back to "a" and cover the old value.
+Every result is stored in register from \[a-z\] cyclically, that is when reaching the last one "z", the register would go back to "a" and cover the old value.
 
-`$_` is constantly pointed previous step value.
+"$a" gives the value in "a". "$\_" gives the previous result.'
 
 for example:
 

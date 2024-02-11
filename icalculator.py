@@ -8,6 +8,8 @@ from colorama import Fore, Back, Style
 
 DEBUG = False
 
+VERSION = "0.0.1"
+
 register = QueueRegister[Decimal]()
 
 
@@ -32,15 +34,11 @@ def replace_symbols(input: str) -> str:
 
 def _header():
     return (
-        "Input content to calculate.\n"
-        + Fore.RED
-        + "'exit'"
-        + Style.RESET_ALL
-        + " to exit.\n"
-        + Fore.RED
-        + "'$_'  "
-        + Style.RESET_ALL
-        + " return previous step result."
+        f"{ Fore.BLUE }QCalc { VERSION }  [ a calculator in interactive mode ]. { Style.RESET_ALL }\n"
+        + f'> Input content to calculate. Type { Fore.BLUE }"exit"{ Style.RESET_ALL } to exit.\n'
+        + f"> Every result is stored in register from { Fore.BLUE }[a-z]{ Style.RESET_ALL } cyclically.\n"
+        + f'> { Fore.BLUE }"$a"{ Style.RESET_ALL } gives the value in "a".\n'
+        + f'> { Fore.BLUE }"$_"{ Style.RESET_ALL } gives the previous result.'
     )
 
 
@@ -70,9 +68,9 @@ def icalculate():
     sys.stdout.flush()
 
     while True:
-        print(Fore.GREEN + ">>> ", end="")
+        print(Fore.BLUE + ">>> ", end="")
         sys.stdout.flush()
-        x = str(input())
+        x = str(input()).strip()
 
         if x == "exit":
             return
