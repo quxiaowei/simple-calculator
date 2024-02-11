@@ -12,7 +12,7 @@ calculate
 
 ### add interactive mode in icalculate.py
 
-Results will be recorded in an \[a-z\] register automatically. you can use the `$a` in calcualation subsequently. When the register reach the last one "z", next one result would goto "a" and cover the old value.
+Results will be recorded in an \[a-z\] register automatically. you can use the `$a` in subsequent calculation. When reaching the last one "z", the register would go back to "a" and cover the old value.
 
 `$_` is constantly pointed previous step value.
 
@@ -37,4 +37,4 @@ $b: 351
 2. OCT: "0o123", "0O123" only support integar
 3. Scientific: "-123.12E-123" or "-123.12e+123"
 
-### add term
+### add terminal highlight in -i
