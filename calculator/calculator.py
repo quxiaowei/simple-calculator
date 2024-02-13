@@ -4,33 +4,39 @@ from dataclasses import dataclass
 from decimal import Decimal, setcontext, Context
 from typing import Callable
 
-if __name__ == "__main__" or not __package__:
+if not __package__:
     from words import parse
 else:
     from .words import parse
 
 
-DEBUG_FLAG = False
-
-FUNCS = {"sum", "max", "min"}
-
 setcontext(Context(prec=30))
 
 MIN = Decimal("1e-29")
+
+DEBUG_FLAG = False
+
+FUNCS = {"sum", "max", "min", "abs"}
 
 
 @dataclass
 class Operator:
     w: int
+    """weight"""
     operator: str
+    """operator name"""
     func: Callable | None
+    """function"""
+    pc: int | None = None  # parameters count None for list
+    """parameter count"""
 
 
-_oper_dict = {
+_OPER_DICT = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
     "*": Operator(20, "*", operator.mul),
     "/": Operator(20, "/", operator.truediv),
+    "^": Operator(30, "^", operator.pow),
     "(": Operator(100, "(", None),
     ")": Operator(-100, ")", None),
     ",": Operator(0, ",", None),
@@ -38,6 +44,7 @@ _oper_dict = {
     "sum": Operator(100, "sum", sum),
     "max": Operator(100, "max", max),
     "min": Operator(100, "min", min),
+    "abs": Operator(100, "abs", abs, 1),
 }
 
 _abyss = Operator(-10000, "", None)
@@ -46,7 +53,7 @@ _abyss = Operator(-10000, "", None)
 class Chain(object):
     def __init__(self, raw: str):
         self._operators: list[Operator] = []
-        self._nums: list[None | Decimal] = []
+        self._nums: list[Decimal | None] = []
 
         base = 0
 
@@ -54,18 +61,18 @@ class Chain(object):
         if words is None or words == []:
             raise ValueError("not valid")
 
-        for word in words:  # raw.split():
+        for word in words:
             if word in set("()"):  # ( )
-                base += _oper_dict[word].w
+                base += _OPER_DICT[word].w
 
             elif word in FUNCS:  # functions
-                op = deepcopy(_oper_dict[word])
+                op = deepcopy(_OPER_DICT[word])
                 op.w += base
                 self._operators.append(op)
                 self._nums.append(None)
 
-            elif word in set(_oper_dict.keys()):  # operators
-                op = deepcopy(_oper_dict[word])
+            elif word in set(_OPER_DICT.keys()):  # operators
+                op = deepcopy(_OPER_DICT[word])
                 op.w += base
                 self._operators.append(op)
 
@@ -77,7 +84,7 @@ class Chain(object):
                 self._nums.append(num)
 
         if base != 0:
-            pass  # error
+            raise ValueError("not valid")
 
     def __len__(self) -> int:
         return len(self._operators)
@@ -109,7 +116,15 @@ class Chain(object):
                 values.append(self._nums[n + 1])
                 self._delete(n)
 
-            res = op.func(values)
+            if op.pc is not None and len(values) != op.pc:
+                raise ValueError(
+                    f'func: "{ op.operator }" '
+                    + f"expects { op.pc } parameters "
+                    + f"get { len(values) }"
+                )
+
+            res = op.func(values) if op.pc is None else op.func(*values)
+
             if abs(res) <= MIN:
                 res = Decimal(0)
 

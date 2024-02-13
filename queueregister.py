@@ -24,15 +24,28 @@ class QueueRegister(Generic[T]):
     def PREVIOUS_SYMBOL(self):
         return self._PREVIOUS_SYMBOL
 
-    def goto_next(self):
+    def next_one(self):
         self._registor_name.rotate(-1)
         self._top_cursor = self._registor_name[0]
 
-    def __getitem__(self, key: str) -> None | T:
-        return self._read(key)
+    def go_back(self):
+        self._registor_name.rotate(1)
+        self._top_cursor = self._registor_name[0]
+        # self._registor[self._top_cursor] = None
 
-    def __setitem__(self, key: str, new_value: None | T):
-        self.write(new_value, key)
+    def __getitem__(self, key: str | int) -> None | T:
+        l_key = key
+        if type(key) == int:
+            l_key = self._registor_name[key % len(self._registor_name)]
+
+        return self._read(l_key)
+
+    def __setitem__(self, key: str | int, new_value: None | T):
+        l_key = key
+        if type(key) == int:
+            l_key = self._registor_name[key % len(self._registor_name)]
+
+        self.write(new_value, l_key)
 
     def _read(self, key: str) -> None | T:
         l_key = key
@@ -42,6 +55,9 @@ class QueueRegister(Generic[T]):
         if l_key in self._registor:
             return self._registor[l_key]
         return None
+
+    def keys(self) -> list[str]:
+        return [self._registor_name[i] for i in range(-1, -26, -1)]
 
     def contains(self, key: str) -> bool:
         if key == self._PREVIOUS_SYMBOL:
@@ -66,7 +82,7 @@ class QueueRegister(Generic[T]):
 
     def write(self, value: None | T, key: None | str = None):
         l_key = key
-        if key is None:
+        if l_key is None:
             l_key = self._top_cursor
         elif key == self._PREVIOUS_SYMBOL:
             l_key = self._registor_name[-1]
@@ -86,9 +102,9 @@ if __name__ == "__main__":
     DEBUG = True
     reg = QueueRegister[int]()
     reg.write(1111)
-    reg.goto_next()
+    reg.next_one()
     reg.write(2222)
-    reg.goto_next()
+    reg.next_one()
     reg.write(3333)
     reg.write(4444, reg.PREVIOUS_SYMBOL)
 

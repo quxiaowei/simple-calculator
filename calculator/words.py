@@ -1,7 +1,7 @@
 import re
 from typing import Callable
 
-if __name__ == "__main__" or not __package__:
+if not __package__:
     from debug import word_debug, debug_is_on, open_debug
 else:
     from .debug import word_debug, debug_is_on, open_debug
@@ -15,7 +15,7 @@ _RE_OCT_NO = re.compile("0[Oo][0-7]+")
 
 OPERATORS = tuple("- + * / ^")
 
-FUNCS = {"sum", "max", "min"}
+FUNCS = {"sum", "max", "min", "abs"}
 
 _error_message = ""
 
@@ -271,13 +271,15 @@ def parse(s: str) -> ElementStream:
         if debug_is_on():
             print("unvalid expression!")
             print(_error_message)
-        return []
+
+        raise ValueError("unvalid expression")
 
     if stream and len(stream) > 0:
         if debug_is_on():
             print("unvalid expression!")
             print(_error_message)
-        return []
+
+        raise ValueError(f'can\'t understand "{ stream }"')
 
     if debug_is_on():
         print("success!")

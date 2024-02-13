@@ -1,9 +1,13 @@
 #!/usr/bin/env python
-
-import argparse
 import sys
-from calculator import calculate
-from icalculator import icalculate, VERSION
+import argparse
+
+if not __package__:
+    from calculator import calculate
+    from icalculator import icalculate, VERSION
+else:
+    from .calculator import calculate
+    from .icalculator import icalculate, VERSION
 
 parser = argparse.ArgumentParser(
     prog="qcalc",
