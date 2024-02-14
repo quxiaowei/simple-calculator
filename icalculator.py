@@ -15,7 +15,9 @@ else:
 
 class Mode(Enum):
     WALKING = 1
+    """ walking """
     STAY = 2
+    """ stay """
 
 
 DEBUG = False
@@ -33,10 +35,7 @@ def replace_symbols(input: str) -> str:
     for item in set(m):
         symbol = item[1]
 
-        if (
-            not register.contains(symbol)
-            and symbol != register.PREVIOUS_SYMBOL
-        ):
+        if symbol not in register and symbol != register.PREVIOUS_SYMBOL:
             raise ValueError(f"register { item } does not exists")
 
         value = str(register[symbol])
@@ -133,7 +132,7 @@ def icalculate():
 
         register.write(result)
 
-        print(_result(register.get_cursor(), result))
+        print(_result(register.cursor, result))
         sys.stdout.flush()
 
         if MODE == MODE.WALKING:
@@ -168,19 +167,15 @@ def reset_queue():
 
 def show_results():
     count = 0
-    for key in reversed(register.keys()):
-        if register[key] is not None:
-            count += 1
-            print(_result(key, register[key]))
 
-    if MODE == Mode.STAY:
-        if register[0] is not None:
-            count += 1
-            print(_result(register.get_cursor(), register[0]))
+    for key, value in reversed(register.items()):
+        if key == register.cursor and MODE == Mode.WALKING:
+            continue
+        print(_result(key, value))
+        count += 1
 
     if count <= 0:
         print(_message("emtry!"))
-        sys.stdout.flush()
 
     sys.stdout.flush()
 
