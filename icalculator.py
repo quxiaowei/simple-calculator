@@ -12,8 +12,14 @@ else:
     from .calculator import calculate
     from .queueregister import QueueRegister
 
+__all__ = ["icalculate"]
+
 
 class Mode(Enum):
+    """
+    register mode
+    """
+
     WALKING = 1
     """ walking """
     STAY = 2
@@ -25,11 +31,15 @@ DEBUG = False
 VERSION = "0.0.1"
 
 MODE: Mode = Mode.WALKING
+""" register mode """
 
 register = QueueRegister[Decimal]()
 
 
 def replace_symbols(input: str) -> str:
+    """
+    replace symbol in input with value stored in correspoding register
+    """
     new_str = input
     m = re.findall(r"\$[a-z,_]{1}", new_str)
     for item in set(m):
@@ -46,8 +56,12 @@ def replace_symbols(input: str) -> str:
 
 
 def _header() -> str:
+    """
+    terminal: header output
+    """
     return (
-        f"{ Fore.BLUE }QCalc { VERSION }  [ a calculator in interactive mode ]. { Style.RESET_ALL }\n"
+        f"{ Fore.BLUE }QCalc { VERSION }  "
+        + f"[ a calculator in interactive mode ]. { Style.RESET_ALL }\n"
         + f"> Input content to calculate.\n"
         + f'> Type "exit" to exit.\n'
         + f'> Type "ref" for reference.\n'
@@ -57,7 +71,10 @@ def _header() -> str:
     )
 
 
-def _error(error) -> str:
+def _error(error: str) -> str:
+    """
+    terminal: error output
+    """
     return (
         Style.RESET_ALL
         + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error }"
@@ -65,7 +82,10 @@ def _error(error) -> str:
     )
 
 
-def _result(cursor, result) -> str:
+def _result(cursor: str, result: Decimal) -> str:
+    """
+    terminal: result output
+    """
     return (
         Fore.RED
         + Style.BRIGHT
@@ -78,10 +98,16 @@ def _result(cursor, result) -> str:
 
 
 def _message(message) -> str:
+    """
+    terminal: message output
+    """
     return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
 
 
 def _prompt() -> str:
+    """
+    terminal: prompt output
+    """
     if MODE == Mode.WALKING:
         return Fore.BLUE + ">>> "
     else:
@@ -89,6 +115,10 @@ def _prompt() -> str:
 
 
 def icalculate():
+    """
+    iteractive processor
+    """
+
     global MODE
     print(_header())
     sys.stdout.flush()
@@ -140,6 +170,9 @@ def icalculate():
 
 
 def show_ref():
+    """
+    print calculator reference
+    """
     _docstring = """
 --- Commands ---
 "exit" exit program.
@@ -159,13 +192,18 @@ abs(1-12)        => 11
 
 
 def reset_queue():
+    """
+    reset register to initial status
+    """
     global register
     register = QueueRegister[Decimal]()
     print(_message('the results are cleared, starting from "a"'))
-    pass
 
 
 def show_results():
+    """
+    print register values
+    """
     count = 0
 
     for key, value in reversed(register.items()):

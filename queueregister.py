@@ -1,6 +1,8 @@
 from collections import deque
-from typing import TypeVar, Generic
-from collections.abc import Iterator
+from typing import TypeVar, Generic, Optional
+from collections.abc import Iterator, Iterable, Generator, Reversible
+
+__all__ = ["QueueRegister"]
 
 T = TypeVar("T")
 
@@ -11,13 +13,26 @@ NAME_SET = set(NAME_STR)
 QUEUE_LEN = len(NAME_STR)
 
 
-class register_item:
-    def __init__(self, keys, _dict, _type="keys"):
+class register_item(Generic[T]):
+    """
+    reversible iterator for register
+    """
+
+    def __init__(self, keys: Iterable[str], _dict: dict[str, T], _type="keys"):
+        """
+        Args:
+            keys: key collection
+            _dict: dictionary
+            _type: "keys", "values", "items" determine which view it would iterate
+        """
         self.keys = keys
         self.dict = _dict
         self.type = _type
 
-    def _gen(self, _range):
+    def _gen(self, _range: Iterable[int]) -> Generator:
+        """
+        generator of register
+        """
         for i in _range:
             if abs(i) >= len(self.keys):
                 i = i % len(self.keys)
@@ -36,19 +51,31 @@ class register_item:
                 _value = self.dict[_key]
                 yield _key, _value
 
-    def __iter__(self):
+    def __len__(self) -> int:
+        count = 0
+        for key in self.keys:
+            if key in self.dict and self.dict[key] is not None:
+                count += 1
+        return count
+
+    def __iter__(self) -> Iterator:
         return self._gen(range(0, -len(self.keys), -1))
 
-    def __reversed__(self):
+    def __reversed__(self) -> Iterator:
         return self._gen(range(1, len(self.keys) + 1, 1))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"register_item({ self.type })"
 
 
 class QueueRegister(Generic[T]):
-    def __init__(self, previous_symbol="_"):
-        self._registor = dict()
+    """
+    a loop dict-like structure with keys a-z, iterable, subscriptable.\n
+    support KeysView, ValuesView, ItemsView
+    """
+
+    def __init__(self, previous_symbol: str = "_"):
+        self._registor: dict[str, T] = dict()
         self._keys = deque(NAME_STR)
         self._PREVIOUS_SYMBOL = previous_symbol
 
@@ -58,46 +85,77 @@ class QueueRegister(Generic[T]):
         self._top_cursor = "a"
 
     @property
-    def PREVIOUS_SYMBOL(self):
+    def PREVIOUS_SYMBOL(self) -> str:
         return self._PREVIOUS_SYMBOL
 
     def next_one(self):
+        """
+        rotate registor to next one
+        """
         self._keys.rotate(-1)
         self._top_cursor = self._keys[0]
 
     def go_back(self):
+        """
+        rotate registor back by one
+        """
         self._keys.rotate(1)
         self._top_cursor = self._keys[0]
         # self._registor[self._top_cursor] = None
 
-    def __getitem__(self, key: str | int) -> None | T:
+    def __getitem__(self, key: str | int) -> Optional[T]:
+        """
+        read value by key or index
+        """
         l_key = key
         if type(key) == int:
             l_key = self._keys[key % len(self._keys)]
 
         return self._read(l_key)
 
-    def __setitem__(self, key: str | int, new_value: None | T):
+    def __setitem__(self, key: str | int, new_value: Optional[T]):
+        """
+        set value by key or index
+        """
         l_key = key
         if type(key) == int:
             l_key = self._keys[key % len(self._keys)]
 
         self.write(new_value, l_key)
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[T]:
         for i in range(0, -QUEUE_LEN, -1):
             yield self[i]
 
+    def __len__(self) -> int:
+        count = 0
+        for key in self._keys:
+            if key in self._registor and self._registor[key] is not None:
+                count += 1
+        return count
+
     def keys(self) -> Iterator[str]:
+        """
+        get KeysView
+        """
         return register_item(self._keys, self._registor, _type="keys")
 
     def values(self) -> Iterator[T]:
+        """
+        get ValuesView
+        """
         return register_item(self._keys, self._registor, _type="values")
 
     def items(self) -> Iterator[tuple[str, T]]:
+        """
+        get ItemsView
+        """
         return register_item(self._keys, self._registor, _type="items")
 
-    def _read(self, key: str) -> None | T:
+    def _read(self, key: str) -> Optional[T]:
+        """
+        read value by key or index
+        """
         l_key = key
         if l_key == self._PREVIOUS_SYMBOL:
             l_key = self._keys[-1]
@@ -107,9 +165,15 @@ class QueueRegister(Generic[T]):
         return None
 
     def __contains__(self, key: str) -> bool:
+        """
+        whether register contains key
+        """
         return self._contains(key)
 
     def _contains(self, key: str) -> bool:
+        """
+        whether register contains key
+        """
         if key == self._PREVIOUS_SYMBOL:
             return True
 
@@ -131,7 +195,14 @@ class QueueRegister(Generic[T]):
     def cursor(self) -> str:
         return self._top_cursor
 
-    def write(self, value: None | T, key: None | str = None):
+    def write(self, value: Optional[T], key: Optional[str] = None):
+        """
+        set value by key
+
+        Args:
+            key: default value is None, then write to cursor position
+        """
+
         l_key = key
         if l_key is None:
             l_key = self._top_cursor

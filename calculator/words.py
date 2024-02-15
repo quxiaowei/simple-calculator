@@ -6,6 +6,7 @@ if not __package__:
 else:
     from .debug import word_debug, debug_is_on, open_debug
 
+__all__ = ["number", "parse"]
 
 FMT = "{3} {1!r} \t: {2}"
 

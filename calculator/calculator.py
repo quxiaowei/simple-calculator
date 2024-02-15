@@ -9,6 +9,7 @@ if not __package__:
 else:
     from .words import parse
 
+__all__ = ["calculate"]
 
 setcontext(Context(prec=30))
 
@@ -47,7 +48,7 @@ _OPER_DICT = {
     "abs": Operator(100, "abs", abs, 1),
 }
 
-_abyss = Operator(-10000, "", None)
+_ABYSS = Operator(-10000, "", None)
 
 
 class Chain(object):
@@ -91,7 +92,7 @@ class Chain(object):
 
     def __getitem__(self, n) -> Operator:
         if n < 0 or n >= len(self):
-            return _abyss
+            return _ABYSS
         return self._operators[n]
 
     def _delete(self, n: int):
