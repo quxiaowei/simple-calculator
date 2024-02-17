@@ -10,9 +10,10 @@ __all__ = ["number", "parse"]
 
 FMT = "{3} {1!r} \t: {2}"
 
-_RE_NO = re.compile("[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
-_RE_HEX_NO = re.compile("0[Xx][0-9,a-f,A-F]+")
-_RE_OCT_NO = re.compile("0[Oo][0-7]+")
+_RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
+_RE_HEX_NO = re.compile(r"0[Xx][0-9,a-f,A-F]+")
+_RE_OCT_NO = re.compile(r"0[Oo][0-7]+")
+_RE_SYMBOL = re.compile(r"\$[a-z]")
 
 OPERATORS = tuple("- + * / ^")
 
@@ -185,7 +186,8 @@ def _notation(note: str, drop=False) -> _ExprFunc:
         res, stream = space(s)
         if stream and stream[: len(l_note)] == note:
             if drop:
-                res.append([])
+                # res.append([])
+                pass
             else:
                 res.append(l_note)
             stream = stream[len(l_note) :]
@@ -199,7 +201,7 @@ def _notation(note: str, drop=False) -> _ExprFunc:
 
 @word_debug(FMT)
 def fn_name(s: str) -> tuple[ElementStream, str]:
-    RE_FN = re.compile("([\w]+)\s*\(")
+    RE_FN = re.compile(r"([\w]+)\s*\(")
 
     res, stream = space(s)
 

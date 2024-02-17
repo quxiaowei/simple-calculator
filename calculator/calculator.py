@@ -124,7 +124,10 @@ class Chain(object):
                     + f"get { len(values) }"
                 )
 
-            res = op.func(values) if op.pc is None else op.func(*values)
+            if op.func is not None:
+                res = op.func(values) if op.pc is None else op.func(*values)
+            else:
+                raise TypeError("operator function can't be None")
 
             if abs(res) <= MIN:
                 res = Decimal(0)
@@ -132,7 +135,11 @@ class Chain(object):
             self._nums[n] = res
 
         else:  # binary operators
-            res = op.func(self._nums[n], self._nums[n + 1])
+            if op.func is not None:
+                res = op.func(self._nums[n], self._nums[n + 1])
+            else:
+                raise TypeError("operator function can't be None")
+
             if abs(res) <= MIN:
                 res = Decimal(0)
 
@@ -147,7 +154,9 @@ class Chain(object):
 def calculate(s: str) -> Decimal | None:
     chain = Chain(s)
     while len(chain) != 0:
-        DEBUG_FLAG and print(chain.result())
+        if DEBUG_FLAG:
+            print(chain.result())
+
         i = max(range(len(chain)), key=lambda a: chain[a].w)
         chain.reduce_chain(i)
 

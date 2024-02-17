@@ -49,9 +49,11 @@ def replace_symbols(input: str) -> str:
             raise ValueError(f"register { item } does not exists")
 
         value = str(register[symbol])
-        new_str = new_str.replace(item, value)
+        new_str = new_str.replace(item, f" {value} ")
 
-    DEBUG and print(f"match:{ m }, replace:{ new_str }")
+    if DEBUG:
+        print(f"match:{ m }, replace:{ new_str }")
+
     return new_str
 
 
@@ -71,15 +73,19 @@ def _header() -> str:
     )
 
 
-def _error(error: str) -> str:
+def _error(error) -> str:
     """
     terminal: error output
     """
-    return (
-        Style.RESET_ALL
-        + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error }"
-        + Style.RESET_ALL
-    )
+    match error:
+        case str():
+            return (
+                Style.RESET_ALL
+                + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error }"
+                + Style.RESET_ALL
+            )
+        case _:
+            raise TypeError("error cannot be print")
 
 
 def _result(cursor: str, result: Decimal) -> str:
@@ -155,6 +161,8 @@ def icalculate():
         try:
             x = replace_symbols(x)
             result = calculate(x)
+            if result is None:
+                raise ValueError("not valid")
         except ValueError as e:
             print(_error(e), file=sys.stderr)
             sys.stderr.flush()

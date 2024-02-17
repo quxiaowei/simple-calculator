@@ -1,10 +1,11 @@
 from collections import deque
 from typing import TypeVar, Generic, Optional
-from collections.abc import Iterator, Iterable, Generator, Reversible
+from collections.abc import Iterator, Iterable, Generator, Reversible, Sequence
 
 __all__ = ["QueueRegister"]
 
 T = TypeVar("T")
+V = TypeVar("V")
 
 DEBUG = False
 
@@ -13,12 +14,12 @@ NAME_SET = set(NAME_STR)
 QUEUE_LEN = len(NAME_STR)
 
 
-class register_item(Generic[T]):
+class register_item(Generic[T, V]):
     """
     reversible iterator for register
     """
 
-    def __init__(self, keys: Iterable[str], _dict: dict[str, T], _type="keys"):
+    def __init__(self, keys: Sequence[str], _dict: dict[str, T], _type="keys"):
         """
         Args:
             keys: key collection
@@ -58,10 +59,10 @@ class register_item(Generic[T]):
                 count += 1
         return count
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[V]:
         return self._gen(range(0, -len(self.keys), -1))
 
-    def __reversed__(self) -> Iterator:
+    def __reversed__(self) -> Iterator[V]:
         return self._gen(range(1, len(self.keys) + 1, 1))
 
     def __repr__(self) -> str:
@@ -108,24 +109,33 @@ class QueueRegister(Generic[T]):
         read value by key or index
         """
         l_key = key
-        if type(key) == int:
+        if isinstance(key, int):
+            l_key = int(key)
             l_key = self._keys[key % len(self._keys)]
 
-        return self._read(l_key)
+        if isinstance(l_key, str):
+            return self._read(l_key)
+        else:  ## error
+            raise TypeError("QueueRegister getitem only accept int or str")
 
     def __setitem__(self, key: str | int, new_value: Optional[T]):
         """
         set value by key or index
         """
         l_key = key
-        if type(key) == int:
+        if isinstance(key, int):
             l_key = self._keys[key % len(self._keys)]
 
-        self.write(new_value, l_key)
+        if isinstance(l_key, str):
+            self.write(new_value, l_key)
+        else:
+            raise TypeError("QueueRegister getitem only accept int or str")
 
-    def __iter__(self) -> Generator[T]:
+    def __iter__(self) -> Generator[T, None, None]:
         for i in range(0, -QUEUE_LEN, -1):
-            yield self[i]
+            l_value = self[i]
+            if l_value is not None:
+                yield l_value
 
     def __len__(self) -> int:
         count = 0
@@ -134,23 +144,25 @@ class QueueRegister(Generic[T]):
                 count += 1
         return count
 
-    def keys(self) -> Iterator[str]:
+    def keys(self) -> register_item[T, str]:
         """
         get KeysView
         """
-        return register_item(self._keys, self._registor, _type="keys")
+        return register_item[T, str](self._keys, self._registor, _type="keys")
 
-    def values(self) -> Iterator[T]:
+    def values(self) -> register_item[T, T]:
         """
         get ValuesView
         """
-        return register_item(self._keys, self._registor, _type="values")
+        return register_item[T, T](self._keys, self._registor, _type="values")
 
-    def items(self) -> Iterator[tuple[str, T]]:
+    def items(self) -> register_item[T, tuple[str, T]]:
         """
         get ItemsView
         """
-        return register_item(self._keys, self._registor, _type="items")
+        return register_item[T, tuple[str, T]](
+            self._keys, self._registor, _type="items"
+        )
 
     def _read(self, key: str) -> Optional[T]:
         """
@@ -214,9 +226,7 @@ class QueueRegister(Generic[T]):
         except ValueError:
             raise ValueError
 
-        if l_key in self._registor:
-            self._registor[l_key] = value
-        else:
+        if value is not None:
             self._registor[l_key] = value
 
 
