@@ -1,5 +1,6 @@
 import sys
 import re
+import readline  ### fix input()
 from enum import Enum
 from decimal import Decimal
 
@@ -85,7 +86,11 @@ def _error(error) -> str:
                 + Style.RESET_ALL
             )
         case _:
-            raise TypeError("error cannot be print")
+            return (
+                Style.RESET_ALL
+                + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error.args[0] }"
+                + Style.RESET_ALL
+            )
 
 
 def _result(cursor: str, result: Decimal) -> str:
@@ -130,10 +135,7 @@ def icalculate():
     sys.stdout.flush()
 
     while True:
-        print(_prompt(), end="")
-        sys.stdout.flush()
-
-        x = str(input()).strip()
+        x = str(input(_prompt())).strip()
         match x:
             case "exit":
                 return
