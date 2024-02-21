@@ -75,7 +75,7 @@ class QueueRegister(Generic[T]):
     support KeysView, ValuesView, ItemsView
     """
 
-    def __init__(self, previous_symbol: str = "_"):
+    def __init__(self, previous_symbol: str = "@"):
         self._registor: dict[str, T] = dict()
         self._keys = deque(NAME_STR)
         self._PREVIOUS_SYMBOL = previous_symbol

@@ -5,9 +5,9 @@ from decimal import Decimal, setcontext, Context
 from typing import Callable
 
 if not __package__:
-    from words import parse
+    from words import parse, WordType, Word
 else:
-    from .words import parse
+    from .words import parse, WordType, Word
 
 __all__ = ["calculate"]
 
@@ -32,6 +32,12 @@ class Operator:
     """parameter count"""
 
 
+@dataclass
+class Number:
+    value: Decimal | None
+    meta: Word
+
+
 _OPER_DICT = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
@@ -52,9 +58,10 @@ _ABYSS = Operator(-10000, "", None)
 
 
 class Chain(object):
-    def __init__(self, raw: str):
+    def __init__(self, raw: str, register: Callable | None = None):
         self._operators: list[Operator] = []
         self._nums: list[Decimal | None] = []
+        self._register = register
 
         base = 0
 
@@ -63,26 +70,44 @@ class Chain(object):
             raise ValueError("not valid")
 
         for word in words:
-            if word in set("()"):  # ( )
-                base += _OPER_DICT[word].w
+            match word.word_type:
+                case WordType.LEFTPAREN | WordType.RIGHTPAREN:
+                    base += _OPER_DICT[word.value_str].w
 
-            elif word in FUNCS:  # functions
-                op = deepcopy(_OPER_DICT[word])
-                op.w += base
-                self._operators.append(op)
-                self._nums.append(None)
+                case WordType.FUNCNAME:
+                    if word.value_str not in FUNCS:
+                        raise ValueError(f"unknown function: {word.word_str}")
+                    op = deepcopy(_OPER_DICT[word.value_str])
+                    op.w += base
+                    self._operators.append(op)
+                    self._nums.append(None)
 
-            elif word in set(_OPER_DICT.keys()):  # operators
-                op = deepcopy(_OPER_DICT[word])
-                op.w += base
-                self._operators.append(op)
+                case WordType.OPERATOR | WordType.COMMA:
+                    if word.value_str not in _OPER_DICT:
+                        raise ValueError(f"unknown operator: {word.word_str}")
+                    op = deepcopy(_OPER_DICT[word.value_str])
+                    op.w += base
+                    self._operators.append(op)
 
-            else:
-                num = Decimal(word)  # number(word)
-                if abs(num) <= MIN:
-                    num = Decimal("0")
+                case WordType.NUM:
+                    num = Decimal(word.value_str)  # number(word)
+                    if abs(num) <= MIN:
+                        num = Decimal("0")
+                    self._nums.append(num)
 
-                self._nums.append(num)
+                case WordType.REGISTER:
+                    if self._register is None:
+                        raise ValueError(f"unknown register: {word.value_str}")
+
+                    res = self._register(word.value_str)
+                    if res is None or not isinstance(res, Decimal):
+                        raise ValueError(f"unknown register: {word.value_str}")
+
+                    num = res
+                    self._nums.append(num)
+
+                case _:
+                    raise ValueError(f"unknown: {word.word_str}")
 
         if base != 0:
             raise ValueError("not valid")
@@ -151,8 +176,8 @@ class Chain(object):
         return self._nums
 
 
-def calculate(s: str) -> Decimal | None:
-    chain = Chain(s)
+def calculate(s: str, register: Callable | None = None) -> Decimal | None:
+    chain = Chain(s, register=register)
     while len(chain) != 0:
         if DEBUG_FLAG:
             print(chain.result())

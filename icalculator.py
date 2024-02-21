@@ -6,7 +6,7 @@ from decimal import Decimal
 
 try:
     ### import readline fix input() for macos, but readline is not available in windows
-    import readline  
+    import readline
 except:
     pass
 
@@ -48,7 +48,7 @@ def replace_symbols(input: str) -> str:
     replace symbol in input with value stored in correspoding register
     """
     new_str = input
-    m = re.findall(r"\$[a-z,_]{1}", new_str)
+    m = re.findall(r"\@[a-z,_]{1}", new_str)
     for item in set(m):
         symbol = item[1]
 
@@ -75,8 +75,8 @@ def _header() -> str:
         + f'> Type "exit" to exit.\n'
         + f'> Type "ref" for reference.\n'
         + f"> Every result is stored in register from { Fore.BLUE }[a-z]{ Style.RESET_ALL } cyclically.\n"
-        + f'> "$a" gives the value in "a".\n'
-        + f'> "$_" gives the previous result.'
+        + f'> "@a" gives the value in "a".\n'
+        + f'> "@@" gives the previous result.'
     )
 
 
@@ -106,7 +106,7 @@ def _result(cursor: str, result: Decimal) -> str:
     return (
         Fore.RED
         + Style.BRIGHT
-        + f"${ cursor }: "
+        + f"@{ cursor }: "
         + Style.RESET_ALL
         + Fore.YELLOW
         + f"{ result }"
@@ -151,6 +151,8 @@ def icalculate():
             case "show":
                 show_results()
                 continue
+            case "tag":
+                pass
             case "reset" | "clear":
                 reset_queue()
                 continue
@@ -169,8 +171,10 @@ def icalculate():
                 continue
 
         try:
-            x = replace_symbols(x)
-            result = calculate(x)
+            # x = replace_symbols(x)
+            result = calculate(
+                x, register=lambda x: register[x.removeprefix("@")]
+            )
             if result is None:
                 raise ValueError("not valid")
         except ValueError as e:
@@ -200,10 +204,10 @@ def show_ref():
 "go" recover the moving of register.
 
 --- Functions ---
-sum(1,2,2+1)     => 6
-max(1,sum(2,1))  => 3
-min(1,2)         => 1
-abs(1-12)        => 11 
+sum(1, 2, 2+1)     => 6
+max(1, sum(2, 1))  => 3
+min(1, 2)          => 1
+abs(1-12)          => 11 
 """
     print(_message(_docstring))
     pass
@@ -225,7 +229,7 @@ def show_results():
     count = 0
 
     for key, value in reversed(register.items()):
-        if key == register.cursor and MODE == Mode.WALKING:
+        if key == register.cursor:  # and MODE == Mode.WALKING:
             continue
         print(_result(key, value))
         count += 1

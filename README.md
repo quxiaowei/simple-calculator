@@ -14,21 +14,21 @@ calculate
 
 Every result is stored in register from \[a-z\] cyclically, that is when reaching the last one "z", the register would go back to "a" and cover the old value.
 
-"$a" gives the value in "a". "$\_" gives the previous result.'
+"@a" gives the value in "a". "@@" gives the previous result.'
 
 for example:
 
 ```
 >>> 1
-$a: 1
+@a: 1
 >>> $a + 2
-$b: 3
+@b: 3
 ...
-$z: 351
+@z: 351
 >>> $z + 1
-$a: 352
+@a: 352
 >>> $_ - 1
-$b: 351
+@b: 351
 ```
 
 ### support HEX, OCT, Scientific input

@@ -38,7 +38,7 @@ def word_debug(fmt, is_expr=False):
 
             if _DEBUG_FLAG:
                 indicator = "🟢"
-                result_list = [item for item in result[0] if item]
+                result_list = [item.word_str for item in result[0] if item]
                 resultStr = " ".join(result_list)
                 if not result[0]:
                     indicator = "🔴"
