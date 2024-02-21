@@ -1,8 +1,14 @@
 import sys
 import re
-import readline  ### fix input()
 from enum import Enum
 from decimal import Decimal
+
+
+try:
+    ### import readline fix input() for macos, but readline is not available in windows
+    import readline  
+except:
+    pass
 
 from colorama import Fore, Back, Style
 
@@ -149,12 +155,14 @@ def icalculate():
                 reset_queue()
                 continue
             case "stop" | "stay":
-                MODE = Mode.STAY
-                register.go_back()
+                if MODE == Mode.WALKING:
+                    MODE = Mode.STAY
+                    register.go_back()
                 continue
             case "go":
-                MODE = Mode.WALKING
-                register.next_one()
+                if MODE == Mode.STAY:
+                    MODE = Mode.WALKING
+                    register.next_one()
                 continue
             case "ref":
                 show_ref()
