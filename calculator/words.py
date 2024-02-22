@@ -35,16 +35,32 @@ class Word:
     offset: int = 0
 
 
-class ParserLog(dict[int, str]):
+class ParserLog(dict[int, tuple[str, int]]):
     def add(self, key: int, message: str, /, forced=False):
+        # _RE_MESSAGE = re.compile(r"\s*expecting\s+(\w+|(\'\S+\'))(, got)?")
+        
         if not forced and key in self and self[key]:
+            # l_old = self[key].strip()
+            # l_new = message.strip()
+
+            # if not (l_old.startswith("expecting") and l_new.startswith("expecting")):
+            #     return
+
+            # l_old_1 = l_old.split(", got")[0].removeprefix("expecting").strip()
+            # l_new_1 = l_new.split(", got")[0].removeprefix("expecting").strip()
+
+            # l_list = l_old_1.split(" or ") + [l_new_1]
+            # l_list = sorted(list(set(l_list)), reverse=True)
+
+            # self[key] = "expecting " + " or ".join(l_list)
+
             pass
         else:
-            self[key] = message
+            self[key] = (message, 0)
 
     def get(self) -> tuple[int, str]:
         i = max(list(self.keys()))
-        return i, self[i]
+        return i, self[i][0]
 
     def message(self, s: str) -> str:
         l_buffer = list("-" * (len(s) + 4))
@@ -69,10 +85,10 @@ _ExprFunc = Callable[[str], tuple[ElementStream, str]]
 FMT = "{3} {1!r} \t: {2}"
 
 # _RE_NO = re.compile(r"[-+]?[0-9]+(,[0-9]{3})*(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
-_RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
-_RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+")
-_RE_OCT_NO = re.compile(r"0[Oo][0-7]+")
-_RE_REGISTER = re.compile(r"\@[@a-z0-9]+")
+_RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?\b")
+_RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+\b")
+_RE_OCT_NO = re.compile(r"0[Oo][0-7]+\b")
+_RE_REGISTER = re.compile(r"\@[@a-z0-9]+\b")
 
 OPERATORS = tuple("- + * / ^")
 
@@ -91,6 +107,24 @@ if __name__ == "__main__":
 parser_log: ParserLog
 
 g_offset: int
+
+g_layers: int
+
+class Stacker:
+    def __init__(self):
+        return self
+
+    def __enter__(self):
+        global g_layers
+        g_layers += 1
+        return
+
+    def __exit__(self):
+        global g_layers
+        g_layers -= 1
+
+    def layer(self)->int:
+        return g_layers
 
 
 def placeholder() -> Word:
@@ -265,7 +299,7 @@ def number(s: str) -> tuple[ElementStream, str]:
 
     if result is None:
         g_offset = l_offset
-        _error_message = f"expecting number, got '{stream}'"
+        _error_message = f"expecting number"
         parser_log.add(g_offset, _error_message)
         return res, stream
 
@@ -291,13 +325,13 @@ def operator(s: str) -> tuple[ElementStream, str]:
             break
     else:
         g_offset = l_offset
-        _error_message = f"expecting operator, got '{stream}'"
+        _error_message = f"expecting operator"
         parser_log.add(g_offset, _error_message)
 
     return res, stream
 
 
-def _notation(note: str, drop=False) -> _ExprFunc:
+def _notation(note: str, /, drop=False, forced=False) -> _ExprFunc:
     def _inner(s: str) -> tuple[ElementStream, str]:
         global _error_message, g_offset
 
@@ -319,7 +353,7 @@ def _notation(note: str, drop=False) -> _ExprFunc:
         else:
             g_offset = l_offset
             _error_message = f"expecting '{l_note}'"
-            parser_log.add(g_offset, _error_message)
+            parser_log.add(g_offset, _error_message, forced=forced)
 
         return res, stream
 
@@ -333,8 +367,8 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
     res, stream = space(s)
     l_offset = g_offset
 
-    # RE_FN = re.compile(r"([\w]+)\s*\(")
     RE_FN = re.compile(r"([\w]+)\s*")
+    RE_FN2 = re.compile(r"([\w]+)\s*\(")
 
     result = RE_FN.match(stream)
     if result is None:
@@ -342,11 +376,15 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
         return res, stream
 
     func_name = result.groups()[0]
-    # if not func_name in FUNCS:
-    #     g_offset = l_offset
-    #     _error_message = f"expecting function, got '{stream}'"
-    #     parser_log.add(g_offset, _error_message)
-    #     return res, stream
+    if not func_name in FUNCS:
+
+        result2 = RE_FN2.match(stream)
+        if result2 is None:
+            g_offset = l_offset
+            return res, stream
+        else:
+            result = result2
+            func_name = result.groups()[0]
 
     word = Word(func_name, func_name, WordType.FUNCNAME, l_offset)
     g_offset += len(func_name)
@@ -364,7 +402,7 @@ def left_paren(s: str) -> tuple[ElementStream, str]:
 
 @word_debug(FMT)
 def right_paren(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation(")")(s)
+    words, stream = _notation(")", forced=True)(s)
     if words and len(words) >= 1:
         words[0].word_type = WordType.RIGHTPAREN
     return words, stream
