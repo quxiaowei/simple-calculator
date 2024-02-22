@@ -16,15 +16,16 @@ __all__ = ["number", "parse", "ParserLog", "format"]
 
 
 class WordType(Enum):
-    NUM = 1
-    OPERATOR = 2
-    FUNCNAME = 3
-    NOTATION = 4
-    COMMA = 5
-    LEFTPAREN = 6
-    RIGHTPAREN = 7
-    REGISTER = 8
-    PLACEHOLDER = 9
+    NUM = "Number"
+    OPERATOR = "Operator"
+    FUNCNAME = "Function"
+    NOTATION = "Notation"
+    COMMA = "','"
+    LEFTPAREN = "'('"
+    RIGHTPAREN = "')'"
+    REGISTER = "Register"
+    PLACEHOLDER = "P"
+    TRAILINGCOMMA = "TC"
 
 
 @dataclass
@@ -35,28 +36,64 @@ class Word:
     offset: int = 0
 
 
-class ParserLog(dict[int, tuple[str, int]]):
-    def add(self, key: int, message: str, /, forced=False):
-        # _RE_MESSAGE = re.compile(r"\s*expecting\s+(\w+|(\'\S+\'))(, got)?")
-        
-        if not forced and key in self and self[key]:
-            # l_old = self[key].strip()
-            # l_new = message.strip()
+class ParserLog(dict[int, tuple[str, WordType]]):
+    def add(self, key: int, message: str | WordType, /, forced=False):
+        # if not forced and key in self and self[key]:
+        #     pass
 
-            # if not (l_old.startswith("expecting") and l_new.startswith("expecting")):
-            #     return
+        l_text = ""
+        l_type: WordType
 
-            # l_old_1 = l_old.split(", got")[0].removeprefix("expecting").strip()
-            # l_new_1 = l_new.split(", got")[0].removeprefix("expecting").strip()
+        if isinstance(message, WordType):
+            l_text = f"expecting {message.value}"
+            l_type = message
 
-            # l_list = l_old_1.split(" or ") + [l_new_1]
-            # l_list = sorted(list(set(l_list)), reverse=True)
+            if key not in self or not self[key]:
+                self[key] = (l_text, l_type)
+                return
 
-            # self[key] = "expecting " + " or ".join(l_list)
+            if len(word_list) > 1:
+                prev_word = word_list[-1]
+                prev_type = self._left_type(prev_word.word_type)
+            else:
+                prev_type = self._left_type(WordType.PLACEHOLDER)
 
-            pass
+            curr_type = self._right_type(l_type)
+            old_type = self._right_type(l_type)
+
+            if old_type == curr_type:
+                if forced:
+                    self[key] = (l_text, l_type)
+                return
+
+            if prev_type != curr_type:
+                self[key] = (l_text, l_type)
+                return
         else:
-            self[key] = (message, 0)
+            l_text = str(message)
+            l_type = WordType.PLACEHOLDER
+            if key not in self or not self[key]:
+                self[key] = (l_text, l_type)
+                return
+            return
+
+    def _left_type(self, type: WordType) -> str:
+        l_type: str
+        match type:
+            case WordType.NUM | WordType.LEFTPAREN | WordType.REGISTER:
+                l_type = "op"
+            case _:
+                l_type = "ob"
+        return l_type
+
+    def _right_type(self, type: WordType) -> str:
+        l_type: str
+        match type:
+            case WordType.NUM | WordType.REGISTER:
+                l_type = "op"
+            case _:
+                l_type = "ob"
+        return l_type
 
     def get(self) -> tuple[int, str]:
         i = max(list(self.keys()))
@@ -108,23 +145,7 @@ parser_log: ParserLog
 
 g_offset: int
 
-g_layers: int
-
-class Stacker:
-    def __init__(self):
-        return self
-
-    def __enter__(self):
-        global g_layers
-        g_layers += 1
-        return
-
-    def __exit__(self):
-        global g_layers
-        g_layers -= 1
-
-    def layer(self)->int:
-        return g_layers
+word_list: list[Word]
 
 
 def placeholder() -> Word:
@@ -142,14 +163,16 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
+        global g_offset, word_list
         l_offset = g_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
             if not res_tmp:
                 g_offset = l_offset
+                word_list = word_list[:l_word_count]
                 return [], s
             res += res_tmp
 
@@ -168,8 +191,9 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
+        global g_offset, word_list
         l_offset = g_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
@@ -178,6 +202,7 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
                 return res, stream
 
             g_offset = l_offset
+            word_list = word_list[:l_word_count]
             res, stream = [], s
 
         return res, stream
@@ -195,8 +220,9 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
+        global g_offset, word_list
         l_offset = g_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
@@ -205,9 +231,11 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
             if not res_tmp:
                 stream = _stream
                 g_offset = l_offset
+                word_list = word_list[:l_word_count]
                 break
 
             l_offset = g_offset
+            l_word_count = len(word_list)
             res += res_tmp
 
         return res, stream
@@ -226,8 +254,9 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
+        global g_offset, word_list
         l_offset = g_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
 
@@ -236,6 +265,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
         res_tmp, stream = fn(stream)
         while res_tmp:
             l_offset = g_offset
+            l_word_count = len(word_list)
             _stream = stream
 
             res += res_tmp
@@ -244,6 +274,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
         stream = _stream
 
         g_offset = l_offset
+        word_list = word_list[:l_word_count]
 
         if not res:
             res, stream = [], s
@@ -269,7 +300,7 @@ def space(s: str) -> tuple[ElementStream, str]:
 
 @word_debug(FMT)
 def number(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset
+    global _error_message, g_offset, word_list
 
     res, stream = space(s)
     l_offset = g_offset
@@ -289,7 +320,9 @@ def number(s: str) -> tuple[ElementStream, str]:
             result = _RE_REGISTER.match(stream)
             if result is not None:
                 num_str = result.group().lower()
-                word = Word(result.group(), num_str, WordType.REGISTER, l_offset)
+                word = Word(
+                    result.group(), num_str, WordType.REGISTER, l_offset
+                )
         case _:
             result = _RE_NO.match(stream)
             if result is not None:
@@ -300,10 +333,12 @@ def number(s: str) -> tuple[ElementStream, str]:
     if result is None:
         g_offset = l_offset
         _error_message = f"expecting number"
-        parser_log.add(g_offset, _error_message)
+        parser_log.add(g_offset, WordType.NUM)
         return res, stream
 
     # num_str = result.group()
+    word_list.append(word)
+
     span = result.span()
     g_offset += span[1]
     return [word], stream[span[1] :]
@@ -311,7 +346,7 @@ def number(s: str) -> tuple[ElementStream, str]:
 
 @word_debug(FMT)
 def operator(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset
+    global _error_message, g_offset, word_list
 
     res, stream = space(s)
     l_offset = g_offset
@@ -320,7 +355,9 @@ def operator(s: str) -> tuple[ElementStream, str]:
         if stream and stream[: len(token)] == token:
             stream = stream[len(token) :]
             word = Word(token, token, WordType.OPERATOR, l_offset)
+            word_list.append(word)
             res.append(word)
+
             g_offset += len(token)
             break
     else:
@@ -331,9 +368,15 @@ def operator(s: str) -> tuple[ElementStream, str]:
     return res, stream
 
 
-def _notation(note: str, /, drop=False, forced=False) -> _ExprFunc:
+def _notation(
+    note: str,
+    type: WordType,
+    /,
+    drop=False,
+    forced=False,
+) -> _ExprFunc:
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global _error_message, g_offset
+        global _error_message, g_offset, word_list
 
         l_note = note.strip()
 
@@ -346,14 +389,15 @@ def _notation(note: str, /, drop=False, forced=False) -> _ExprFunc:
                 res.append(placeholder())
                 pass
             else:
-                word = Word(note, note, WordType.NOTATION, l_offset)
+                word = Word(note, note, type, l_offset)
+                word_list.append(word)
                 res.append(word)
 
             stream = stream[len(l_note) :]
         else:
             g_offset = l_offset
             _error_message = f"expecting '{l_note}'"
-            parser_log.add(g_offset, _error_message, forced=forced)
+            parser_log.add(g_offset, type, forced=forced)
 
         return res, stream
 
@@ -387,6 +431,7 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
             func_name = result.groups()[0]
 
     word = Word(func_name, func_name, WordType.FUNCNAME, l_offset)
+    word_list.append(word)
     g_offset += len(func_name)
 
     return [word], stream[len(func_name) :]
@@ -394,31 +439,26 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
 
 @word_debug(FMT)
 def left_paren(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation("(")(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.LEFTPAREN
+    words, stream = _notation("(", WordType.LEFTPAREN)(s)
     return words, stream
 
 
 @word_debug(FMT)
 def right_paren(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation(")", forced=True)(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.RIGHTPAREN
+    words, stream = _notation(")", WordType.RIGHTPAREN, forced=True)(s)
     return words, stream
 
 
 @word_debug(FMT)
 def comma(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation(",")(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.COMMA
+    words, stream = _notation(",", WordType.COMMA)(s)
     return words, stream
 
 
 @word_debug(FMT)
 def trailing_comma(s: str) -> tuple[ElementStream, str]:
-    return _notation(",", drop=True)(s)
+    words, stream = _notation(",", WordType.TRAILINGCOMMA)(s)
+    return words, stream
 
 
 @word_debug(FMT, is_expr=True)
@@ -466,14 +506,19 @@ def expr(s: str) -> tuple[ElementStream, str]:
 
 
 def parse(s: str, log: ParserLog | None = None) -> ElementStream:
-    global g_offset, parser_log
+    global g_offset, parser_log, word_list
 
     g_offset = 0
+    word_list = []
     parser_log = log if log is not None else ParserLog()
 
     result, stream = expr(s)
     result = [
-        item for item in result if item and item.word_type != WordType.PLACEHOLDER
+        item
+        for item in result
+        if item
+        and item.word_type != WordType.PLACEHOLDER
+        and item.word_type != WordType.TRAILINGCOMMA
     ]
 
     _, stream = space(stream)

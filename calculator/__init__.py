@@ -1,5 +1,4 @@
-__all__ = ["calculate", "format", "ParserLog"]
+__all__ = ["calculate", "ParserLog"]
 
 from .calculator import calculate
-from .words import format, ParserLog
-
+from .words import ParserLog
