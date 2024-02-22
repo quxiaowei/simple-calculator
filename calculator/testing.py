@@ -146,7 +146,7 @@ class Testing(unittest.TestCase):
             _parse(" ( 12 - 3 *  123 ) + (5 * 6))"),
             msg="should NOT be Expression",
         )
-        self.assertFalse(_parse(" ss(1,2)"), msg="should NOT be Expression")
+        self.assertTrue(_parse(" ss(1,2)"), msg="should be Expression")
         self.assertFalse(_parse(" sum()"), msg="should NOT be Expression")
 
     def test_calculate(self):

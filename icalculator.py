@@ -13,10 +13,10 @@ except:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate
+    from calculator import calculate, ParserLog
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate
+    from .calculator import calculate, ParserLog
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate"]
@@ -41,6 +41,8 @@ MODE: Mode = Mode.WALKING
 """ register mode """
 
 register = QueueRegister[Decimal]()
+
+parser_log: ParserLog
 
 
 def replace_symbols(input: str) -> str:
@@ -80,23 +82,29 @@ def _header() -> str:
     )
 
 
-def _error(error) -> str:
+def _error(error, message: str | None = None) -> str:
     """
     terminal: error output
     """
+    res = ""
     match error:
         case str():
-            return (
+            res = (
                 Style.RESET_ALL
-                + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error }"
+                + f"{ Fore.RED }Error:{ Style.RESET_ALL }{ Fore.RED } { error }"
                 + Style.RESET_ALL
             )
         case _:
-            return (
+            res = (
                 Style.RESET_ALL
-                + f"{ Back.RED }error:{ Style.RESET_ALL }{ Fore.RED } { error.args[0] }"
+                + f"{ Fore.RED }Error:{ Style.RESET_ALL }{ Fore.RED } { error.args[0] }"
                 + Style.RESET_ALL
             )
+
+    if message is not None:
+        res = Fore.RED + message + Style.RESET_ALL
+
+    return res
 
 
 def _result(cursor: str, result: Decimal) -> str:
@@ -136,12 +144,13 @@ def icalculate():
     iteractive processor
     """
 
-    global MODE
+    global MODE, parser_log
+
     print(_header())
     sys.stdout.flush()
 
     while True:
-        x = str(input(_prompt())).strip()
+        x = str(input(_prompt())).strip().lower()
         match x:
             case "exit":
                 return
@@ -172,13 +181,15 @@ def icalculate():
 
         try:
             # x = replace_symbols(x)
+            parser_log = ParserLog()
             result = calculate(
-                x, register=lambda x: register[x.removeprefix("@")]
+                x, register=lambda x: register[x.removeprefix("@")], log=parser_log
             )
+
             if result is None:
                 raise ValueError("not valid")
         except ValueError as e:
-            print(_error(e), file=sys.stderr)
+            print(_error(e, parser_log.message(x)), file=sys.stderr)
             sys.stderr.flush()
             continue
 
