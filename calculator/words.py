@@ -70,8 +70,7 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
         global g_offset
         l_offset = g_offset
 
-        res = []
-        stream = s
+        res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
             if not res_tmp:
@@ -102,7 +101,9 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
             res, stream = fn(stream)
             if res:
                 return res, stream
+
             g_offset = l_offset
+            res, stream = [], s
 
         return res, stream
 
@@ -124,8 +125,10 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
 
         res, stream = [], s
         for fn in fns:
+            _stream = stream
             res_tmp, stream = fn(stream)
             if not res_tmp:
+                stream = _stream
                 g_offset = l_offset
                 break
 
@@ -153,11 +156,15 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
         res = []
 
+        _stream = s
         res_tmp, stream = fn(s)
         while res_tmp:
             l_offset = g_offset
+            _stream = stream
             res += res_tmp
             res_tmp, stream = fn(stream)
+
+        stream = _stream
 
         g_offset = l_offset
 
@@ -171,7 +178,6 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
 def space(s: str) -> tuple[ElementStream, str]:
     global g_offset
-
     l_offset = g_offset
 
     for i, c in enumerate(s):
@@ -186,7 +192,6 @@ def number(s: str) -> tuple[ElementStream, str]:
     global _error_message, g_offset
 
     res, stream = space(s)
-
     l_offset = g_offset
 
     match list(stream[:2].lower()):
@@ -230,7 +235,6 @@ def operator(s: str) -> tuple[ElementStream, str]:
     global _error_message, g_offset
 
     res, stream = space(s)
-
     l_offset = g_offset
 
     for token in OPERATORS:
@@ -254,7 +258,6 @@ def _notation(note: str, drop=False) -> _ExprFunc:
         l_note = note.strip()
 
         res, stream = space(s)
-
         l_offset = g_offset
 
         if stream and stream[: len(l_note)] == l_note:
@@ -280,10 +283,10 @@ def _notation(note: str, drop=False) -> _ExprFunc:
 def fn_name(s: str) -> tuple[ElementStream, str]:
     global g_offset
 
-    RE_FN = re.compile(r"([\w]+)\s*\(")
-
     res, stream = space(s)
     l_offset = g_offset
+
+    RE_FN = re.compile(r"([\w]+)\s*\(")
 
     result = RE_FN.match(stream)
     if result is None:
@@ -297,6 +300,7 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
 
     word = Word(func_name, func_name, WordType.FUNCNAME, l_offset)
     g_offset += len(func_name)
+
     return [word], stream[len(func_name) :]
 
 
@@ -403,7 +407,21 @@ def format2(s: str):
         "                                                                 "
     )
     for word in word_list:
-        buffer[word.offset] = "^"
+        match word.word_type:
+            case WordType.NUM:
+                buffer[word.offset] = "N"
+            case WordType.FUNCNAME:
+                buffer[word.offset] = "F"
+            case WordType.OPERATOR:
+                buffer[word.offset] = "O"
+            case WordType.COMMA:
+                buffer[word.offset] = ","
+            case WordType.LEFTPAREN | WordType.RIGHTPAREN:
+                buffer[word.offset] = "P"
+            case WordType.REGISTER:
+                buffer[word.offset] = "@"
+            case _:
+                buffer[word.offset] = "^"
 
     print("".join(buffer))
 
@@ -412,8 +430,9 @@ if __name__ == "__main__":
     # open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
     # parse(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
-    format(" 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
-    format2(" 2 + ( @aa * sum (1, max(2, 3), 4, 5 )) - 1")
+    # format2("( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
+    # format2(" 2 + ( @aa * sum (1, max(2, 3), 4, 5 )) - (abs(-10) + 1) + 1")
+    format2("  sum (1, ) ")
 
     # parse("max(1)")
     # parse("max(1,)")
