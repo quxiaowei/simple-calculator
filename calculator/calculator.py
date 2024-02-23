@@ -6,9 +6,9 @@ from decimal import Decimal, setcontext, Context
 from typing import Callable
 
 if not __package__:
-    from words import parse, WordType, Word, ParserLog
+    from words import parse, WordType, Word, ParserLogger
 else:
-    from .words import parse, WordType, Word, ParserLog
+    from .words import parse, WordType, Word, ParserLogger
 
 __all__ = ["calculate"]
 
@@ -40,7 +40,7 @@ class Number:
     words: Word | None = None
 
 
-_OPER_DICT = {
+OPER_DICT = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
     "*": Operator(20, "*", operator.mul),
@@ -56,9 +56,7 @@ _OPER_DICT = {
     "abs": Operator(100, "abs", abs, 1),
 }
 
-_ABYSS = Operator(-10000, "", None)
-
-parser_log: ParserLog
+ABYSS = Operator(-10000, "", None)
 
 
 class Chain(object):
@@ -67,47 +65,46 @@ class Chain(object):
         raw: str,
         /,
         register: Callable | None = None,
-        log: ParserLog | None = None,
+        logger: ParserLogger | None = None,
     ):
-        global parser_log
 
         self._operators: list[Operator] = []
         self._nums: list[Number | None] = []
         self._register = register
-        self.parser_log = log if log is not None else ParserLog()
+        self.parser_logger = logger if logger is not None else ParserLogger()
 
         base = 0
-        words = parse(raw, log=self.parser_log)
+        words = parse(raw, log=self.parser_logger)
 
         if words is None or words == []:
             raise ValueError("not valid")
 
-        self.parser_log.clear()
+        self.parser_logger.clear()
 
         for word in words:
             match word.word_type:
                 case WordType.LEFTPAREN | WordType.RIGHTPAREN:
-                    base += _OPER_DICT[word.value_str].w
+                    base += OPER_DICT[word.value_str].w
 
                 case WordType.FUNCNAME:
                     if word.value_str not in FUNCS:
                         _error = f"unknown function: {word.word_str}"
-                        self.parser_log.add(word.offset, _error, forced=True)
+                        self.parser_logger.add(word.offset, _error, forced=True)
                         raise ValueError(_error)
 
-                    op = deepcopy(_OPER_DICT[word.value_str])
+                    op = deepcopy(OPER_DICT[word.value_str])
                     op.w += base
                     op.words = [word]
                     self._operators.append(op)
                     self._nums.append(None)
 
                 case WordType.OPERATOR | WordType.COMMA:
-                    if word.value_str not in _OPER_DICT:
+                    if word.value_str not in OPER_DICT:
                         _error = f"unknown operator: {word.word_str}"
-                        self.parser_log.add(word.offset, _error, forced=True)
+                        self.parser_logger.add(word.offset, _error, forced=True)
                         raise ValueError(_error)
 
-                    op = deepcopy(_OPER_DICT[word.value_str])
+                    op = deepcopy(OPER_DICT[word.value_str])
                     op.w += base
                     op.words = [word]
                     self._operators.append(op)
@@ -121,12 +118,12 @@ class Chain(object):
                 case WordType.REGISTER:
                     if self._register is None:
                         _error = f"unknown register: {word.value_str}"
-                        self.parser_log.add(word.offset, _error, forced=True)
+                        self.parser_logger.add(word.offset, _error, forced=True)
                         raise ValueError(_error)
                     res = self._register(word.value_str)
                     if res is None or not isinstance(res, Decimal):
                         _error = f"unknown register: {word.value_str}"
-                        self.parser_log.add(word.offset, _error, forced=True)
+                        self.parser_logger.add(word.offset, _error, forced=True)
                         raise ValueError(_error)
 
                     num = res
@@ -134,7 +131,7 @@ class Chain(object):
 
                 case _:
                     _error = f"unknown: {word.word_str}"
-                    self.parser_log.add(word.offset, _error, forced=True)
+                    self.parser_logger.add(word.offset, _error, forced=True)
                     raise ValueError(_error)
 
         if base != 0:
@@ -145,7 +142,7 @@ class Chain(object):
 
     def __getitem__(self, n) -> Operator:
         if n < 0 or n >= len(self):
-            return _ABYSS
+            return ABYSS
         return self._operators[n]
 
     def _delete(self, n: int):
@@ -174,7 +171,7 @@ class Chain(object):
 
             if op.pc is not None and len(l_nums) != op.pc:
                 _error = f'func: "{ op.operator }" expecting { op.pc } parameters got { len(l_nums) }'
-                self.parser_log.add(op.words[0].offset, _error, forced=True)
+                self.parser_logger.add(op.words[0].offset, _error, forced=True)
                 raise ValueError(_error)
 
             l_values = [n.value for n in l_nums]
@@ -182,7 +179,7 @@ class Chain(object):
                 res = op.func(l_values) if op.pc is None else op.func(*l_values)
             else:
                 _error = "operator function can't be None"
-                self.parser_log.add(op.words[0].offset, _error, forced=True)
+                self.parser_logger.add(op.words[0].offset, _error, forced=True)
                 raise ValueError(_error)
 
             if abs(res) <= MIN:
@@ -192,10 +189,9 @@ class Chain(object):
             self._nums[n] = Number(res, l_words)
 
         else:  # binary operators
-
             if op.func is None:
                 _error = "operator function can't be None"
-                self.parser_log.add(op.words[0].offset, _error, forced=True)
+                self.parser_logger.add(op.words[0].offset, _error, forced=True)
                 raise ValueError(_error)
 
             l_left: Number = self._nums[n]
@@ -217,9 +213,9 @@ class Chain(object):
 
 
 def calculate(
-    s: str, /, register: Callable | None = None, log: ParserLog | None = None
+    s: str, /, register: Callable | None = None, logger: ParserLogger | None = None
 ) -> Decimal | None:
-    chain = Chain(s, register=register, log=log)
+    chain = Chain(s, register=register, logger=logger)
     while len(chain) != 0:
         if DEBUG_FLAG:
             print(chain.result())

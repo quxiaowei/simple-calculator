@@ -9,7 +9,7 @@ if not __package__:
 else:
     from .debug import word_debug, debug_is_on, open_debug
 
-__all__ = ["number", "parse", "ParserLog", "format"]
+__all__ = ["number", "parse", "ParserLogger", "format"]
 
 
 ### classes and types
@@ -36,7 +36,8 @@ class Word:
     offset: int = 0
 
 
-class ParserLog(dict[int, tuple[str, WordType]]):
+class ParserLogger(dict[int, tuple[str, WordType]]):
+    """logger for messages in parsing"""
 
     def add(self, key: int, message: str, /, forced=False):
         if not forced and key in self and self[key]:
@@ -83,18 +84,18 @@ class ParserLog(dict[int, tuple[str, WordType]]):
         l_type: str
         match type:
             case WordType.NUM | WordType.RIGHTPAREN | WordType.REGISTER:
-                l_type = "ob"
+                l_type = "operand"
             case _:
-                l_type = "op"
+                l_type = "operator"
         return l_type
 
     def _right_type(self, type: WordType) -> str:
         l_type: str
         match type:
             case WordType.NUM | WordType.REGISTER:
-                l_type = "ob"
+                l_type = "operand"
             case _:
-                l_type = "op"
+                l_type = "operator"
         return l_type
 
     def get(self) -> tuple[int, str]:
@@ -116,7 +117,7 @@ Element = Word
 
 ElementStream = list[Element]
 
-_ExprFunc = Callable[[str], tuple[ElementStream, str]]
+ExprFunc = Callable[[str], tuple[ElementStream, str]]
 
 
 ### constants
@@ -143,11 +144,14 @@ if __name__ == "__main__":
     pass
 
 
-parser_log: ParserLog
+parser_logger: ParserLogger
+"""logger"""
 
-g_offset: int
+parser_offset: int
+"""offset of input string during parsing"""
 
 word_list: list[Word]
+"""word list"""
 
 
 def placeholder() -> Word:
@@ -155,7 +159,7 @@ def placeholder() -> Word:
     return Word("PH", "PH", WordType.PLACEHOLDER)
 
 
-def _all(*fns: _ExprFunc) -> _ExprFunc:
+def _all(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 expression2 ... expressionN
 
     Args:
@@ -165,15 +169,15 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset, word_list
-        l_offset = g_offset
+        global parser_offset, word_list
+        l_offset = parser_offset
         l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
             if not res_tmp:
-                g_offset = l_offset
+                parser_offset = l_offset
                 word_list = word_list[:l_word_count]
                 return [], s
             res += res_tmp
@@ -183,7 +187,7 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _any(*fns: _ExprFunc) -> _ExprFunc:
+def _any(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 | expression2 | ... | expressionN
 
     Args:
@@ -193,8 +197,8 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset, word_list
-        l_offset = g_offset
+        global parser_offset, word_list
+        l_offset = parser_offset
         l_word_count = len(word_list)
 
         res, stream = [], s
@@ -203,7 +207,7 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
             if res:
                 return res, stream
 
-            g_offset = l_offset
+            parser_offset = l_offset
             word_list = word_list[:l_word_count]
             res, stream = [], s
 
@@ -212,7 +216,7 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _do(*fns: _ExprFunc) -> _ExprFunc:
+def _do(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 [ expression2 ... [ expressionN ]...]
 
     Args:
@@ -222,8 +226,8 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset, word_list
-        l_offset = g_offset
+        global parser_offset, word_list
+        l_offset = parser_offset
         l_word_count = len(word_list)
 
         res, stream = [], s
@@ -232,11 +236,11 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
             res_tmp, stream = fn(stream)
             if not res_tmp:
                 stream = _stream
-                g_offset = l_offset
+                parser_offset = l_offset
                 word_list = word_list[:l_word_count]
                 break
 
-            l_offset = g_offset
+            l_offset = parser_offset
             l_word_count = len(word_list)
             res += res_tmp
 
@@ -245,7 +249,7 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
+def _repeat(fn: ExprFunc, at_least_once=False) -> ExprFunc:
     """expression = expression*
 
     Args:
@@ -256,8 +260,8 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
     """
 
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset, word_list
-        l_offset = g_offset
+        global parser_offset, word_list
+        l_offset = parser_offset
         l_word_count = len(word_list)
 
         res, stream = [], s
@@ -266,7 +270,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
         res_tmp, stream = fn(stream)
         while res_tmp:
-            l_offset = g_offset
+            l_offset = parser_offset
             l_word_count = len(word_list)
             _stream = stream
 
@@ -275,7 +279,7 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
         stream = _stream
 
-        g_offset = l_offset
+        parser_offset = l_offset
         word_list = word_list[:l_word_count]
 
         if not res:
@@ -290,22 +294,22 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
 
 def space(s: str) -> tuple[ElementStream, str]:
-    global g_offset
-    l_offset = g_offset
+    global parser_offset
+    l_offset = parser_offset
 
     for i, c in enumerate(s):
         if not c.isspace():
             return [], s[i:]
-        g_offset += 1
+        parser_offset += 1
     return [], ""
 
 
 @word_debug(FMT)
 def number(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset, word_list
+    global _error_message, parser_offset, word_list
 
     res, stream = space(s)
-    l_offset = g_offset
+    l_offset = parser_offset
 
     match list(stream[:2].lower()):
         case ["0", "x"]:
@@ -331,25 +335,24 @@ def number(s: str) -> tuple[ElementStream, str]:
                 word = Word(result.group(), num_str, WordType.NUM, l_offset)
 
     if result is None:
-        g_offset = l_offset
-        _error_message = f"expecting number"
-        parser_log.expect(g_offset, WordType.NUM)
+        parser_offset = l_offset
+        parser_log.expect(parser_offset, WordType.NUM)
         return res, stream
 
     # num_str = result.group()
     word_list.append(word)
 
     span = result.span()
-    g_offset += span[1]
+    parser_offset += span[1]
     return [word], stream[span[1] :]
 
 
 @word_debug(FMT)
 def operator(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset, word_list
+    global _error_message, parser_offset, word_list
 
     res, stream = space(s)
-    l_offset = g_offset
+    l_offset = parser_offset
 
     for token in OPERATORS:
         if stream and stream[: len(token)] == token:
@@ -358,12 +361,11 @@ def operator(s: str) -> tuple[ElementStream, str]:
             word_list.append(word)
             res.append(word)
 
-            g_offset += len(token)
+            parser_offset += len(token)
             break
     else:
-        g_offset = l_offset
-        _error_message = f"expecting operator"
-        parser_log.expect(g_offset, WordType.OPERATOR)
+        parser_offset = l_offset
+        parser_log.expect(parser_offset, WordType.OPERATOR)
 
     return res, stream
 
@@ -374,17 +376,17 @@ def _notation(
     /,
     drop=False,
     forced=False,
-) -> _ExprFunc:
+) -> ExprFunc:
     def _inner(s: str) -> tuple[ElementStream, str]:
-        global _error_message, g_offset, word_list
+        global _error_message, parser_offset, word_list
 
         l_note = note.strip()
 
         res, stream = space(s)
-        l_offset = g_offset
+        l_offset = parser_offset
 
         if stream and stream[: len(l_note)] == l_note:
-            g_offset += len(l_note)
+            parser_offset += len(l_note)
             if drop:
                 res.append(placeholder())
                 pass
@@ -395,9 +397,8 @@ def _notation(
 
             stream = stream[len(l_note) :]
         else:
-            g_offset = l_offset
-            _error_message = f"expecting '{l_note}'"
-            parser_log.expect(g_offset, type, forced=forced)
+            parser_offset = l_offset
+            parser_log.expect(parser_offset, type, forced=forced)
 
         return res, stream
 
@@ -406,17 +407,17 @@ def _notation(
 
 @word_debug(FMT)
 def fn_name(s: str) -> tuple[ElementStream, str]:
-    global g_offset
+    global parser_offset
 
     res, stream = space(s)
-    l_offset = g_offset
+    l_offset = parser_offset
 
     RE_FN = re.compile(r"([\w]+)\s*")
     RE_FN2 = re.compile(r"([\w]+)\s*\(")
 
     result = RE_FN.match(stream)
     if result is None:
-        g_offset = l_offset
+        parser_offset = l_offset
         return res, stream
 
     func_name = result.groups()[0]
@@ -424,7 +425,7 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
 
         result2 = RE_FN2.match(stream)
         if result2 is None:
-            g_offset = l_offset
+            parser_offset = l_offset
             return res, stream
         else:
             result = result2
@@ -432,7 +433,7 @@ def fn_name(s: str) -> tuple[ElementStream, str]:
 
     word = Word(func_name, func_name, WordType.FUNCNAME, l_offset)
     word_list.append(word)
-    g_offset += len(func_name)
+    parser_offset += len(func_name)
 
     return [word], stream[len(func_name) :]
 
@@ -505,12 +506,12 @@ def expr(s: str) -> tuple[ElementStream, str]:
     return _do(_any(e_2, e_1, e_fn), _repeat(_all(operator, expr)))(s)
 
 
-def parse(s: str, log: ParserLog | None = None) -> ElementStream:
-    global g_offset, parser_log, word_list
+def parse(s: str, log: ParserLogger | None = None) -> ElementStream:
+    global parser_offset, parser_log, word_list
 
-    g_offset = 0
+    parser_offset = 0
     word_list = []
-    parser_log = log if log is not None else ParserLog()
+    parser_log = log if log is not None else ParserLogger()
 
     result, stream = expr(s)
     result = [
