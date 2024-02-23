@@ -37,62 +37,64 @@ class Word:
 
 
 class ParserLog(dict[int, tuple[str, WordType]]):
-    def add(self, key: int, message: str | WordType, /, forced=False):
-        # if not forced and key in self and self[key]:
-        #     pass
+
+    def add(self, key: int, message: str, /, forced=False):
+        if not forced and key in self and self[key]:
+            pass
 
         l_text = ""
         l_type: WordType
 
-        if isinstance(message, WordType):
-            l_text = f"expecting {message.value}"
-            l_type = message
-
-            if key not in self or not self[key]:
-                self[key] = (l_text, l_type)
-                return
-
-            if len(word_list) > 1:
-                prev_word = word_list[-1]
-                prev_type = self._left_type(prev_word.word_type)
-            else:
-                prev_type = self._left_type(WordType.PLACEHOLDER)
-
-            curr_type = self._right_type(l_type)
-            old_type = self._right_type(l_type)
-
-            if old_type == curr_type:
-                if forced:
-                    self[key] = (l_text, l_type)
-                return
-
-            if prev_type != curr_type:
-                self[key] = (l_text, l_type)
-                return
-        else:
+        if message:
             l_text = str(message)
             l_type = WordType.PLACEHOLDER
             if key not in self or not self[key]:
                 self[key] = (l_text, l_type)
-                return
+        else:
+            return
+
+    def expect(self, key: int, expect: WordType, /, forced=False):
+        l_text = f"expecting {expect.value}"
+        l_type = expect
+
+        if key not in self or not self[key]:
+            self[key] = (l_text, l_type)
+            return
+
+        if len(word_list) > 1:
+            prev_word = word_list[-1]
+            prev_type = self._left_type(prev_word.word_type)
+        else:
+            prev_type = self._left_type(WordType.PLACEHOLDER)
+
+        curr_type = self._right_type(l_type)
+        old_type = self._right_type(self[key][1])
+
+        if old_type == curr_type:
+            if forced:
+                self[key] = (l_text, l_type)
+            return
+
+        if prev_type != curr_type:
+            self[key] = (l_text, l_type)
             return
 
     def _left_type(self, type: WordType) -> str:
         l_type: str
         match type:
-            case WordType.NUM | WordType.LEFTPAREN | WordType.REGISTER:
-                l_type = "op"
-            case _:
+            case WordType.NUM | WordType.RIGHTPAREN | WordType.REGISTER:
                 l_type = "ob"
+            case _:
+                l_type = "op"
         return l_type
 
     def _right_type(self, type: WordType) -> str:
         l_type: str
         match type:
             case WordType.NUM | WordType.REGISTER:
-                l_type = "op"
-            case _:
                 l_type = "ob"
+            case _:
+                l_type = "op"
         return l_type
 
     def get(self) -> tuple[int, str]:
@@ -125,7 +127,7 @@ FMT = "{3} {1!r} \t: {2}"
 _RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?\b")
 _RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+\b")
 _RE_OCT_NO = re.compile(r"0[Oo][0-7]+\b")
-_RE_REGISTER = re.compile(r"\@[@a-z0-9]+\b")
+_RE_REGISTER = re.compile(r"(@@)|(@[a-z0-9]+)\b")
 
 OPERATORS = tuple("- + * / ^")
 
@@ -309,31 +311,29 @@ def number(s: str) -> tuple[ElementStream, str]:
         case ["0", "x"]:
             result = _RE_HEX_NO.match(stream)
             if result is not None:
-                num_str = str(int(result.group(), 16)).lower()
+                num_str = str(int(result.group(), 16))
                 word = Word(result.group(), num_str, WordType.NUM, l_offset)
         case ["0", "o"]:
             result = _RE_OCT_NO.match(stream)
             if result is not None:
-                num_str = str(int(result.group(), 8)).lower()
+                num_str = str(int(result.group(), 8))
                 word = Word(result.group(), num_str, WordType.NUM, l_offset)
         case ["@", _]:
             result = _RE_REGISTER.match(stream)
             if result is not None:
-                num_str = result.group().lower()
-                word = Word(
-                    result.group(), num_str, WordType.REGISTER, l_offset
-                )
+                num_str = result.group()
+                word = Word(result.group(), num_str, WordType.REGISTER, l_offset)
         case _:
             result = _RE_NO.match(stream)
             if result is not None:
-                num_str = result.group().lower()
+                num_str = result.group()
                 # num_str = num_str.replace(",", "")
                 word = Word(result.group(), num_str, WordType.NUM, l_offset)
 
     if result is None:
         g_offset = l_offset
         _error_message = f"expecting number"
-        parser_log.add(g_offset, WordType.NUM)
+        parser_log.expect(g_offset, WordType.NUM)
         return res, stream
 
     # num_str = result.group()
@@ -363,7 +363,7 @@ def operator(s: str) -> tuple[ElementStream, str]:
     else:
         g_offset = l_offset
         _error_message = f"expecting operator"
-        parser_log.add(g_offset, _error_message)
+        parser_log.expect(g_offset, WordType.OPERATOR)
 
     return res, stream
 
@@ -397,7 +397,7 @@ def _notation(
         else:
             g_offset = l_offset
             _error_message = f"expecting '{l_note}'"
-            parser_log.add(g_offset, type, forced=forced)
+            parser_log.expect(g_offset, type, forced=forced)
 
         return res, stream
 
