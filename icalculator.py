@@ -179,11 +179,14 @@ def icalculate():
             # x = replace_symbols(x)
             parser_log = ParserLogger()
             result = calculate(
-                x, register=lambda x: register[x.removeprefix("@")], logger=parser_log
+                input=x,
+                register=lambda x: register[x.removeprefix("@")],
+                logger=parser_log,
             )
 
             if result is None:
                 raise ValueError("not valid")
+
         except ValueError as e:
             print(_error(e, parser_log.message(x)), file=sys.stderr)
             sys.stderr.flush()
