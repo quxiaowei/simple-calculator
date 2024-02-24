@@ -2,49 +2,142 @@ import re
 from copy import deepcopy
 from enum import Enum
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Self
 
 if not __package__:
     from debug import word_debug, debug_is_on, open_debug
 else:
     from .debug import word_debug, debug_is_on, open_debug
 
-__all__ = ["number", "parse", "ParserLog", "format"]
+__all__ = ["parse", "number", "ParserLogger", "format", "Word", "WordList"]
 
 
 ### classes and types
 
 
 class WordType(Enum):
-    NUM = 1
-    OPERATOR = 2
-    FUNCNAME = 3
-    NOTATION = 4
-    COMMA = 5
-    LEFTPAREN = 6
-    RIGHTPAREN = 7
-    REGISTER = 8
-    PLACEHOLDER = 9
+    """word type"""
+
+    NUM = "Number"
+    OPERATOR = "Operator"
+    FUNCNAME = "Function"
+    NOTATION = "Notation"
+    COMMA = "','"
+    LEFTPAREN = "'('"
+    RIGHTPAREN = "')'"
+    REGISTER = "Register"
+
+    # virtual words
+    PLACEHOLDER = "P"
+    """placeholder"""
+    TRAILINGCOMMA = "TC"
+    """trailing comma"""
+
+    @property
+    def isvirtual(self) -> bool:
+        return self == WordType.PLACEHOLDER or self == WordType.TRAILINGCOMMA
 
 
 @dataclass
 class Word:
     word_str: str
+    """raw string"""
     value_str: str
-    word_type: WordType
+    """value string"""
+    type: WordType
+    """type"""
     offset: int = 0
+    """postion in raw input"""
+
+    @classmethod
+    def placeholder(cls) -> Self:
+        """get placeholder instance"""
+        return cls("PH", "PH", WordType.PLACEHOLDER)
+
+    @property
+    def isvirtual(self) -> bool:
+        return self.type.isvirtual
 
 
-class ParserLog(dict[int, str]):
-    def add(self, key: int, message: str, /, forced=False):
-        if not forced and key in self and self[key]:
+class ParserLogger(dict[int, tuple[str, WordType]]):
+    """logger for messages in parsing"""
+
+    def add(self, message: str, *, at: int, forced=False):
+        """Add message
+
+        Args:
+            message: message text
+            at:      position in raw input
+            forced:  higher priority (default False)
+        Returns:
+            None
+        """
+
+        if not forced and at in self and self[at]:
             pass
+
+        l_type: WordType
+
+        l_type = WordType.PLACEHOLDER
+        if at not in self or not self[at]:
+            self[at] = (message, l_type)
+
+    def expect(self, type: WordType, *, at: int, forced=False):
+        """Expecting word type
+
+        Args:
+            at:     position in raw input
+            type:   word type
+            forced: higher priority (default False)
+        Returns:
+            None
+        """
+        l_text = f"expecting {type.value}"
+        l_type = type
+
+        if at not in self or not self[at]:
+            self[at] = (l_text, l_type)
+            return
+
+        if len(word_list) > 1:
+            prev_word = word_list[-1]
+            prev_type = self._left_type(prev_word.type)
         else:
-            self[key] = message
+            prev_type = self._left_type(WordType.PLACEHOLDER)
+
+        curr_type = self._right_type(l_type)
+        old_type = self._right_type(self[at][1])
+
+        if old_type == curr_type:
+            if forced:
+                self[at] = (l_text, l_type)
+            return
+
+        if prev_type != curr_type:
+            self[at] = (l_text, l_type)
+            return
+
+    def _left_type(self, type: WordType) -> str:
+        l_type: str
+        match type:
+            case WordType.NUM | WordType.RIGHTPAREN | WordType.REGISTER:
+                l_type = "operand"
+            case _:
+                l_type = "operator"
+        return l_type
+
+    def _right_type(self, type: WordType) -> str:
+        l_type: str
+        match type:
+            case WordType.NUM | WordType.REGISTER:
+                l_type = "operand"
+            case _:
+                l_type = "operator"
+        return l_type
 
     def get(self) -> tuple[int, str]:
         i = max(list(self.keys()))
-        return i, self[i]
+        return i, self[i][0]
 
     def message(self, s: str) -> str:
         l_buffer = list("-" * (len(s) + 4))
@@ -57,28 +150,28 @@ class ParserLog(dict[int, str]):
         return "\n".join([l_m1, l_m2, l_m3])
 
 
-Element = Word
+WordList = list[Word]
+"""list[Word]"""
 
-ElementStream = list[Element]
-
-_ExprFunc = Callable[[str], tuple[ElementStream, str]]
+ExprFunc = Callable[[str], tuple[WordList, str]]
+"""Expression Function"""
 
 
 ### constants
 
 FMT = "{3} {1!r} \t: {2}"
 
-# _RE_NO = re.compile(r"[-+]?[0-9]+(,[0-9]{3})*(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
-_RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
-_RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+")
-_RE_OCT_NO = re.compile(r"0[Oo][0-7]+")
-_RE_REGISTER = re.compile(r"\@[@a-z0-9]+")
+# RE_NO = re.compile(r"[-+]?[0-9]+(,[0-9]{3})*(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
+RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?\b")
+RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+\b")
+RE_OCT_NO = re.compile(r"0[Oo][0-7]+\b")
+RE_REGISTER = re.compile(r"(@@)|(@[a-z0-9]+)\b")
+RE_FN = re.compile(r"([\w]+)\s*")
+RE_FN2 = re.compile(r"([\w]+)\s*\(")
 
 OPERATORS = tuple("- + * / ^")
 
 FUNCS = {"sum", "max", "min", "abs"}
-
-_GUESS = False
 
 
 ### init
@@ -88,34 +181,36 @@ if __name__ == "__main__":
     pass
 
 
-parser_log: ParserLog
+parser_logger: ParserLogger
+"""logger"""
 
-g_offset: int
+parser_offset: int
+"""offset of input string during parsing"""
+
+word_list: WordList
+"""word list"""
 
 
-def placeholder() -> Word:
-    """True but empty placeholder"""
-    return Word("PH", "PH", WordType.PLACEHOLDER)
-
-
-def _all(*fns: _ExprFunc) -> _ExprFunc:
+def _all(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 expression2 ... expressionN
 
     Args:
         fns: Expression Functions
-    return:
+    Returns:
         new expression func
     """
 
-    def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
-        l_offset = g_offset
+    def _inner(s: str) -> tuple[WordList, str]:
+        global parser_offset, word_list
+        l_offset = parser_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
             res_tmp, stream = fn(stream)
             if not res_tmp:
-                g_offset = l_offset
+                parser_offset = l_offset
+                word_list = word_list[:l_word_count]
                 return [], s
             res += res_tmp
 
@@ -124,18 +219,19 @@ def _all(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _any(*fns: _ExprFunc) -> _ExprFunc:
+def _any(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 | expression2 | ... | expressionN
 
     Args:
         fns: expression functions
-    return:
+    Returns:
         new expression func
     """
 
-    def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
-        l_offset = g_offset
+    def _inner(s: str) -> tuple[WordList, str]:
+        global parser_offset, word_list
+        l_offset = parser_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
@@ -143,7 +239,8 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
             if res:
                 return res, stream
 
-            g_offset = l_offset
+            parser_offset = l_offset
+            word_list = word_list[:l_word_count]
             res, stream = [], s
 
         return res, stream
@@ -151,18 +248,19 @@ def _any(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _do(*fns: _ExprFunc) -> _ExprFunc:
+def _do(*fns: ExprFunc) -> ExprFunc:
     """expression = expression1 [ expression2 ... [ expressionN ]...]
 
     Args:
         fns: expression functions
-    return:
+    Returns:
         new expression func
     """
 
-    def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
-        l_offset = g_offset
+    def _inner(s: str) -> tuple[WordList, str]:
+        global parser_offset, word_list
+        l_offset = parser_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
         for fn in fns:
@@ -170,10 +268,12 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
             res_tmp, stream = fn(stream)
             if not res_tmp:
                 stream = _stream
-                g_offset = l_offset
+                parser_offset = l_offset
+                word_list = word_list[:l_word_count]
                 break
 
-            l_offset = g_offset
+            l_offset = parser_offset
+            l_word_count = len(word_list)
             res += res_tmp
 
         return res, stream
@@ -181,19 +281,20 @@ def _do(*fns: _ExprFunc) -> _ExprFunc:
     return _inner
 
 
-def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
+def _repeat(fn: ExprFunc, *, at_least_once=False) -> ExprFunc:
     """expression = expression*
 
     Args:
         fn: expression function
         at_least_once: if True ( expression = expression+ )
-    return:
+    Returns:
         new expression func
     """
 
-    def _inner(s: str) -> tuple[ElementStream, str]:
-        global g_offset
-        l_offset = g_offset
+    def _inner(s: str) -> tuple[WordList, str]:
+        global parser_offset, word_list
+        l_offset = parser_offset
+        l_word_count = len(word_list)
 
         res, stream = [], s
 
@@ -201,7 +302,8 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
         res_tmp, stream = fn(stream)
         while res_tmp:
-            l_offset = g_offset
+            l_offset = parser_offset
+            l_word_count = len(word_list)
             _stream = stream
 
             res += res_tmp
@@ -209,117 +311,132 @@ def _repeat(fn: _ExprFunc, at_least_once=False) -> _ExprFunc:
 
         stream = _stream
 
-        g_offset = l_offset
+        parser_offset = l_offset
+        word_list = word_list[:l_word_count]
 
         if not res:
             res, stream = [], s
 
         if not res and not at_least_once:
-            res, stream = [placeholder()], s
+            res, stream = [Word.placeholder()], s
 
         return res, stream
 
     return _inner
 
 
-def space(s: str) -> tuple[ElementStream, str]:
-    global g_offset
-    l_offset = g_offset
+def space(s: str) -> tuple[WordList, str]:
+    global parser_offset
+    l_offset = parser_offset
 
     for i, c in enumerate(s):
         if not c.isspace():
             return [], s[i:]
-        g_offset += 1
+        parser_offset += 1
     return [], ""
 
 
 @word_debug(FMT)
-def number(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset
+def number(s: str) -> tuple[WordList, str]:
+    global _error_message, parser_offset, word_list
 
     res, stream = space(s)
-    l_offset = g_offset
+    l_offset = parser_offset
+
+    l_type = WordType.NUM
 
     match list(stream[:2].lower()):
         case ["0", "x"]:
-            result = _RE_HEX_NO.match(stream)
+            result = RE_HEX_NO.match(stream)
             if result is not None:
-                num_str = str(int(result.group(), 16)).lower()
-                word = Word(result.group(), num_str, WordType.NUM, l_offset)
+                num_str = str(int(result.group(), 16))
+                word = Word(result.group(), num_str, l_type, l_offset)
+
         case ["0", "o"]:
-            result = _RE_OCT_NO.match(stream)
+            result = RE_OCT_NO.match(stream)
             if result is not None:
-                num_str = str(int(result.group(), 8)).lower()
-                word = Word(result.group(), num_str, WordType.NUM, l_offset)
+                num_str = str(int(result.group(), 8))
+                word = Word(result.group(), num_str, l_type, l_offset)
+
         case ["@", _]:
-            result = _RE_REGISTER.match(stream)
+            result = RE_REGISTER.match(stream)
+            l_type = WordType.REGISTER
             if result is not None:
-                num_str = result.group().lower()
-                word = Word(result.group(), num_str, WordType.REGISTER, l_offset)
+                num_str = result.group()
+                word = Word(result.group(), num_str, l_type, l_offset)
+
         case _:
-            result = _RE_NO.match(stream)
+            result = RE_NO.match(stream)
             if result is not None:
-                num_str = result.group().lower()
-                # num_str = num_str.replace(",", "")
-                word = Word(result.group(), num_str, WordType.NUM, l_offset)
+                num_str = result.group()
+                word = Word(result.group(), num_str, l_type, l_offset)
 
     if result is None:
-        g_offset = l_offset
-        _error_message = f"expecting number, got '{stream}'"
-        parser_log.add(g_offset, _error_message)
+        parser_offset = l_offset
+        parser_log.expect(l_type, at=parser_offset)
         return res, stream
 
     # num_str = result.group()
+    word_list.append(word)
+
     span = result.span()
-    g_offset += span[1]
+    parser_offset += span[1]
     return [word], stream[span[1] :]
 
 
 @word_debug(FMT)
-def operator(s: str) -> tuple[ElementStream, str]:
-    global _error_message, g_offset
+def operator(s: str) -> tuple[WordList, str]:
+    global _error_message, parser_offset, word_list
 
     res, stream = space(s)
-    l_offset = g_offset
+    l_offset = parser_offset
 
     for token in OPERATORS:
-        if stream and stream[: len(token)] == token:
+        if stream.startswith(token):
             stream = stream[len(token) :]
             word = Word(token, token, WordType.OPERATOR, l_offset)
+            word_list.append(word)
             res.append(word)
-            g_offset += len(token)
+
+            parser_offset += len(token)
             break
     else:
-        g_offset = l_offset
-        _error_message = f"expecting operator, got '{stream}'"
-        parser_log.add(g_offset, _error_message)
+        parser_offset = l_offset
+        parser_log.expect(WordType.OPERATOR, at=parser_offset)
 
     return res, stream
 
 
-def _notation(note: str, drop=False) -> _ExprFunc:
-    def _inner(s: str) -> tuple[ElementStream, str]:
-        global _error_message, g_offset
+def _notation(
+    note: str,
+    type: WordType,
+    *,
+    drop=False,
+    forced=False,
+) -> ExprFunc:
+
+    def _inner(s: str) -> tuple[WordList, str]:
+        global _error_message, parser_offset, word_list
+
+        res, stream = space(s)
+        l_offset = parser_offset
 
         l_note = note.strip()
 
-        res, stream = space(s)
-        l_offset = g_offset
-
-        if stream and stream[: len(l_note)] == l_note:
-            g_offset += len(l_note)
+        if stream.startswith(l_note):
+            parser_offset += len(l_note)
             if drop:
-                res.append(placeholder())
+                res.append(Word.placeholder())
                 pass
             else:
-                word = Word(note, note, WordType.NOTATION, l_offset)
+                word = Word(note, note, type, l_offset)
+                word_list.append(word)
                 res.append(word)
 
             stream = stream[len(l_note) :]
         else:
-            g_offset = l_offset
-            _error_message = f"expecting '{l_note}'"
-            parser_log.add(g_offset, _error_message)
+            parser_offset = l_offset
+            parser_log.expect(type, at=parser_offset, forced=forced)
 
         return res, stream
 
@@ -327,90 +444,76 @@ def _notation(note: str, drop=False) -> _ExprFunc:
 
 
 @word_debug(FMT)
-def fn_name(s: str) -> tuple[ElementStream, str]:
-    global g_offset
+def fn_name(s: str) -> tuple[WordList, str]:
+    global parser_offset
 
     res, stream = space(s)
-    l_offset = g_offset
-
-    # RE_FN = re.compile(r"([\w]+)\s*\(")
-    RE_FN = re.compile(r"([\w]+)\s*")
+    l_offset = parser_offset
 
     result = RE_FN.match(stream)
     if result is None:
-        g_offset = l_offset
+        parser_offset = l_offset
         return res, stream
 
     func_name = result.groups()[0]
-    # if not func_name in FUNCS:
-    #     g_offset = l_offset
-    #     _error_message = f"expecting function, got '{stream}'"
-    #     parser_log.add(g_offset, _error_message)
-    #     return res, stream
+    if not func_name in FUNCS:
+
+        result2 = RE_FN2.match(stream)
+        if result2 is None:
+            parser_offset = l_offset
+            return res, stream
+        # else:
+        result = result2
+        func_name = result.groups()[0]
 
     word = Word(func_name, func_name, WordType.FUNCNAME, l_offset)
-    g_offset += len(func_name)
+    word_list.append(word)
+    parser_offset += len(func_name)
 
     return [word], stream[len(func_name) :]
 
 
 @word_debug(FMT)
-def left_paren(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation("(")(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.LEFTPAREN
+def left_paren(s: str) -> tuple[WordList, str]:
+    words, stream = _notation("(", WordType.LEFTPAREN)(s)
     return words, stream
 
 
 @word_debug(FMT)
-def right_paren(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation(")")(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.RIGHTPAREN
+def right_paren(s: str) -> tuple[WordList, str]:
+    words, stream = _notation(")", WordType.RIGHTPAREN, forced=True)(s)
     return words, stream
 
 
 @word_debug(FMT)
-def comma(s: str) -> tuple[ElementStream, str]:
-    words, stream = _notation(",")(s)
-    if words and len(words) >= 1:
-        words[0].word_type = WordType.COMMA
+def comma(s: str) -> tuple[WordList, str]:
+    words, stream = _notation(",", WordType.COMMA)(s)
     return words, stream
 
 
 @word_debug(FMT)
-def trailing_comma(s: str) -> tuple[ElementStream, str]:
-    return _notation(",", drop=True)(s)
+def trailing_comma(s: str) -> tuple[WordList, str]:
+    words, stream = _notation(",", WordType.TRAILINGCOMMA)(s)
+    return words, stream
 
 
 @word_debug(FMT, is_expr=True)
-def e_2(s: str) -> tuple[ElementStream, str]:
+def e_2(s: str) -> tuple[WordList, str]:
     """expression = number [ operator number ]*"""
+
     return _do(number, _repeat(_all(operator, number)))(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_1(s: str) -> tuple[ElementStream, str]:
+def e_1(s: str) -> tuple[WordList, str]:
     """expression = '(' expression ')'"""
-
-    def _guess(s):
-        return s.lstrip().startswith("(")
-
-    if _GUESS and not _guess(s):
-        return [], s
 
     return _all(left_paren, expr, right_paren)(s)
 
 
 @word_debug(FMT, is_expr=True)
-def e_fn(s: str) -> tuple[ElementStream, str]:
+def e_fn(s: str) -> tuple[WordList, str]:
     """expression = fn( expression1 [ , expression2 ]* [,]  )"""
-
-    def _guess(s):
-        return s.lstrip()[0].isalpha()
-
-    if _GUESS and not _guess(s):
-        return [], s
 
     return _all(
         fn_name,
@@ -421,40 +524,34 @@ def e_fn(s: str) -> tuple[ElementStream, str]:
 
 
 @word_debug(FMT, is_expr=True)
-def expr(s: str) -> tuple[ElementStream, str]:
+def expr(s: str) -> tuple[WordList, str]:
     """expression =  _e2 | _e1 [ operator expression ]*"""
     # _e2 is not necessary, can be replaced by number
     return _do(_any(e_2, e_1, e_fn), _repeat(_all(operator, expr)))(s)
 
 
-def parse(s: str, log: ParserLog | None = None) -> ElementStream:
-    global g_offset, parser_log
+def parse(s: str, *, log: ParserLogger | None = None) -> WordList:
+    global parser_offset, parser_log, word_list
 
-    g_offset = 0
-    parser_log = log if log is not None else ParserLog()
+    parser_offset = 0
+    parser_log = log if log is not None else ParserLogger()
 
-    result, stream = expr(s)
-    result = [
-        item for item in result if item and item.word_type != WordType.PLACEHOLDER
-    ]
+    word_list = []
+
+    words, stream = expr(s)
+    words = [word for word in words if word and not word.isvirtual]
 
     _, stream = space(stream)
-    if not result:
-        if debug_is_on():
-            print("unvalid expression!")
-
+    if not words:
         raise ValueError("unvalid expression")
 
     if stream and len(stream) > 0:
-        if debug_is_on():
-            print("unvalid expression!")
-
         raise ValueError(f'can\'t understand "{ stream }"')
 
     if debug_is_on():
         print("success!")
 
-    return result
+    return words
 
 
 def format(s: str) -> str:
@@ -485,7 +582,7 @@ def format2(s: str):
         return
 
     for word in word_list:
-        match word.word_type:
+        match word.type:
             case WordType.NUM:
                 buffer[word.offset] = "N"
             case WordType.FUNCNAME:

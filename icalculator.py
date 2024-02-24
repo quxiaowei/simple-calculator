@@ -5,50 +5,53 @@ from decimal import Decimal
 
 
 try:
-    ### import readline fix input() for macos, but readline is not available in windows
+    ### import readline fix input() for macos
     import readline
-except:
+except ImportError:
+    ### readline is not available in windows
     pass
 
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate, ParserLog
+    from calculator import calculate, ParserLogger
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate, ParserLog
+    from .calculator import calculate, ParserLogger
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate"]
 
 
 class Mode(Enum):
-    """
-    register mode
-    """
+    """register mode: WALKING/STAY"""
 
     WALKING = 1
     """ walking """
+
     STAY = 2
     """ stay """
 
 
 DEBUG = False
+"""Debug switch"""
 
 VERSION = "0.0.1"
+"""Version"""
 
 MODE: Mode = Mode.WALKING
-""" register mode """
+"""register mode"""
 
 register = QueueRegister[Decimal]()
+""" Register """
 
-parser_log: ParserLog
+parser_log: ParserLogger
+""" Parser logger"""
 
 
 def replace_symbols(input: str) -> str:
-    """
-    replace symbol in input with value stored in correspoding register
-    """
+    """[deprecated] replace symbol in input with register value based on text"""
+
     new_str = input
     m = re.findall(r"\@[a-z,_]{1}", new_str)
     for item in set(m):
@@ -67,9 +70,8 @@ def replace_symbols(input: str) -> str:
 
 
 def _header() -> str:
-    """
-    terminal: header output
-    """
+    """terminal: header output"""
+
     return (
         f"{ Fore.BLUE }QCalc { VERSION }  "
         + f"[ a calculator in interactive mode ]. { Style.RESET_ALL }\n"
@@ -83,9 +85,8 @@ def _header() -> str:
 
 
 def _error(error, message: str | None = None) -> str:
-    """
-    terminal: error output
-    """
+    """terminal: error output"""
+
     res = ""
     match error:
         case str():
@@ -108,9 +109,8 @@ def _error(error, message: str | None = None) -> str:
 
 
 def _result(cursor: str, result: Decimal) -> str:
-    """
-    terminal: result output
-    """
+    """terminal: result output"""
+
     return (
         Fore.RED
         + Style.BRIGHT
@@ -123,16 +123,14 @@ def _result(cursor: str, result: Decimal) -> str:
 
 
 def _message(message) -> str:
-    """
-    terminal: message output
-    """
+    """terminal: message output"""
+
     return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
 
 
 def _prompt() -> str:
-    """
-    terminal: prompt output
-    """
+    """terminal: prompt output"""
+
     if MODE == Mode.WALKING:
         return Fore.BLUE + ">>> "
     else:
@@ -140,9 +138,7 @@ def _prompt() -> str:
 
 
 def icalculate():
-    """
-    iteractive processor
-    """
+    """iteractive processor"""
 
     global MODE, parser_log
 
@@ -181,13 +177,16 @@ def icalculate():
 
         try:
             # x = replace_symbols(x)
-            parser_log = ParserLog()
+            parser_log = ParserLogger()
             result = calculate(
-                x, register=lambda x: register[x.removeprefix("@")], log=parser_log
+                input=x,
+                register=lambda x: register[x.removeprefix("@")],
+                logger=parser_log,
             )
 
             if result is None:
                 raise ValueError("not valid")
+
         except ValueError as e:
             print(_error(e, parser_log.message(x)), file=sys.stderr)
             sys.stderr.flush()
@@ -203,9 +202,8 @@ def icalculate():
 
 
 def show_ref():
-    """
-    print calculator reference
-    """
+    """print calculator reference"""
+
     _docstring = """
 --- Commands ---
 "exit" exit program.
@@ -225,18 +223,16 @@ abs(1-12)          => 11
 
 
 def reset_queue():
-    """
-    reset register to initial status
-    """
+    """reset register to initial status"""
+
     global register
     register = QueueRegister[Decimal]()
     print(_message('the results are cleared, starting from "a"'))
 
 
 def show_results():
-    """
-    print register values
-    """
+    """print register values"""
+
     count = 0
 
     for key, value in reversed(register.items()):
