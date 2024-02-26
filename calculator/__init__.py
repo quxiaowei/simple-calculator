@@ -1,5 +1,5 @@
-__all__ = ["calculate", "ParserLogger", "Register"]
+__all__ = ["calculate", "error_message", "ParserLogger", "Register"]
 
-from .calculator import calculate, Register
+from .calculator import calculate, error_message, Register
 
 from .words import ParserLogger

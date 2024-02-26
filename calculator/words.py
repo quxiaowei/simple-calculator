@@ -386,7 +386,7 @@ def number(s: str) -> tuple[WordList, str]:
 
 @word_debug(FMT)
 def operator(s: str) -> tuple[WordList, str]:
-    global _error_message, parser_offset, word_list
+    global parser_offset, word_list
 
     res, stream = space(s)
     l_offset = parser_offset
@@ -416,7 +416,7 @@ def _notation(
 ) -> ExprFunc:
 
     def _inner(s: str) -> tuple[WordList, str]:
-        global _error_message, parser_offset, word_list
+        global parser_offset, word_list
 
         res, stream = space(s)
         l_offset = parser_offset

@@ -45,7 +45,7 @@ MODE: Mode = Mode.WALKING
 register = QueueRegister[Decimal]()
 """ Register """
 
-parser_log: ParserLogger
+parser_logger: ParserLogger
 """ Parser logger"""
 
 
@@ -140,7 +140,7 @@ def _prompt() -> str:
 def icalculate():
     """iteractive processor"""
 
-    global MODE, parser_log
+    global MODE, parser_logger
 
     print(_header())
     sys.stdout.flush()
@@ -177,18 +177,18 @@ def icalculate():
 
         try:
             # x = replace_symbols(x)
-            parser_log = ParserLogger()
+            parser_logger = ParserLogger()
             result = calculate(
                 input=x,
                 register=lambda x: register[x.removeprefix("@")],
-                logger=parser_log,
+                logger=parser_logger,
             )
 
             if result is None:
                 raise ValueError("not valid")
 
         except ValueError as e:
-            print(_error(e, parser_log.message(x)), file=sys.stderr)
+            print(_error(e, parser_logger.message(x)), file=sys.stderr)
             sys.stderr.flush()
             continue
 

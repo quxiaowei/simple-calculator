@@ -10,7 +10,7 @@ if not __package__:
 else:
     from .words import parse, WordType, Word, ParserLogger
 
-__all__ = ["calculate", "Register"]
+__all__ = ["calculate", "error_message", "Register"]
 
 setcontext(Context(prec=30))
 
@@ -21,6 +21,8 @@ DEBUG_FLAG = False
 FUNCS = {"sum", "max", "min", "abs"}
 
 Register = Callable[[str], Decimal | None]
+
+parser_logger: ParserLogger
 
 
 @dataclass
@@ -206,9 +208,7 @@ class Chain(object):
                 res = Decimal(0)
 
             # store the result
-            l_words = op.words + list(
-                itertools.chain(*[n.words for n in l_nums])
-            )
+            l_words = op.words + list(itertools.chain(*[n.words for n in l_nums]))
             self._nums[n] = Number(res, l_words)
 
         else:  # binary operators
@@ -242,7 +242,11 @@ def calculate(
     logger: ParserLogger | None = None,
 ) -> Decimal | None:
 
-    chain = Chain(input, register=register, logger=logger)
+    global parser_logger
+
+    parser_logger = logger if logger is not None else ParserLogger()
+
+    chain = Chain(input, register=register, logger=parser_logger)
     while len(chain) != 0:
         if DEBUG_FLAG:
             print(chain.result())
@@ -253,10 +257,16 @@ def calculate(
     return chain.result()[0].value
 
 
+def error_message(raw_input: str):
+    return parser_logger.message(raw_input)
+
+
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
+    raw_string = (
+        " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
+    )
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))

@@ -3,19 +3,17 @@ import sys
 import argparse
 
 if not __package__:
-    from calculator import calculate
+    from calculator import calculate, error_message
     from icalculator import icalculate, VERSION
 else:
-    from .calculator import calculate
+    from .calculator import calculate, error_message
     from .icalculator import icalculate, VERSION
 
 parser = argparse.ArgumentParser(
     prog="qcalc",
     description="A simple calculator",
 )
-parser.add_argument(
-    "-v", "--version", action="version", version=f"qcalc({VERSION})"
-)
+parser.add_argument("-v", "--version", action="version", version=f"qcalc({VERSION})")
 
 parser.add_argument(
     "-i",
@@ -50,6 +48,7 @@ else:
         result = calculate(string_input)
     except:
         print("error: check your input", file=sys.stderr)
+        print(error_message(string_input))
         sys.stderr.flush()
     else:
         print(f"result: { result }")
