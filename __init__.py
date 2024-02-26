@@ -1,6 +1,6 @@
 ### __init__.py
 
-__all__ = ["calculate", "format", "icalculate"]
+__all__ = ["calculate", "icalculate"]
 
-from .calculator import calculate, format
+from .calculator import calculate
 from .icalculator import icalculate
