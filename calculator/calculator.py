@@ -83,13 +83,13 @@ class Chain(object):
         raw: str,
         *,
         register: Register | None = None,
-        logger: ParserLogger | None = None,
+        logger: ParserLogger,
     ):
 
         self._operators: list[Operator] = []
         self._nums: list[Number] = []
         self._register = register
-        self.logger = logger if logger is not None else ParserLogger()
+        self.logger = logger
 
         base = 0
         words = parse(raw, log=self.logger)
@@ -208,7 +208,9 @@ class Chain(object):
                 res = Decimal(0)
 
             # store the result
-            l_words = op.words + list(itertools.chain(*[n.words for n in l_nums]))
+            l_words = op.words + list(
+                itertools.chain(*[n.words for n in l_nums])
+            )
             self._nums[n] = Number(res, l_words)
 
         else:  # binary operators
@@ -238,8 +240,8 @@ class Chain(object):
 def calculate(
     input: str,
     *,
-    register: Register | None = None,
     logger: ParserLogger | None = None,
+    register: Register | None = None,
 ) -> Decimal | None:
 
     global parser_logger
@@ -264,9 +266,7 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = (
-        " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
-    )
+    raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))

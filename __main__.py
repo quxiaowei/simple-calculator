@@ -2,18 +2,22 @@
 import sys
 import argparse
 
+from colorama import Fore, Back, Style
+
 if not __package__:
     from calculator import calculate, error_message
-    from icalculator import icalculate, VERSION
+    from icalculator import icalculate, VERSION, _red, _green, _blue
 else:
     from .calculator import calculate, error_message
-    from .icalculator import icalculate, VERSION
+    from .icalculator import icalculate, VERSION, _red, _green, _blue
 
 parser = argparse.ArgumentParser(
     prog="qcalc",
     description="A simple calculator",
 )
-parser.add_argument("-v", "--version", action="version", version=f"qcalc({VERSION})")
+parser.add_argument(
+    "-v", "--version", action="version", version=f"qcalc({VERSION})"
+)
 
 parser.add_argument(
     "-i",
@@ -39,17 +43,19 @@ if args.interactive:
 else:
     if args.input and len(args.input) > 0:
         string_input = args.input
-        print(f"input: { string_input }")
     else:
-        print("input is required in non-interactive mode", file=sys.stderr)
+        print(
+            _red("input is required in non-interactive mode"),
+            file=sys.stderr,
+        )
         sys.stderr.flush()
 
     try:
         result = calculate(string_input)
     except:
-        print("error: check your input", file=sys.stderr)
-        print(error_message(string_input))
+        print(_red(error_message(string_input)), file=sys.stderr)
         sys.stderr.flush()
     else:
-        print(f"result: { result }")
+        print(_blue(f"input:  { string_input }"))
+        print(_green(f"result: { result }"))
         sys.stdout.flush()

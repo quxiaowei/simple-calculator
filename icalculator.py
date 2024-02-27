@@ -20,7 +20,7 @@ else:
     from .calculator import calculate, ParserLogger
     from .queueregister import QueueRegister
 
-__all__ = ["icalculate"]
+__all__ = ["icalculate", "_red", "_blue", "_green"]
 
 
 class Mode(Enum):
@@ -126,6 +126,30 @@ def _message(message) -> str:
     """terminal: message output"""
 
     return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
+
+
+def _blue(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.BLUE + f"{ message }" + Style.RESET_ALL
+
+
+def _red(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.RED + f"{ message }" + Style.RESET_ALL
+
+
+def _yellow(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
+
+
+def _green(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.GREEN + f"{ message }" + Style.RESET_ALL
 
 
 def _prompt() -> str:
