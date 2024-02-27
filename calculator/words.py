@@ -171,7 +171,7 @@ RE_FN2 = re.compile(r"([\w]+)\s*\(")
 
 OPERATORS = tuple("- + * / ^")
 
-FUNCS = {"sum", "max", "min", "abs"}
+FUNCS = {"sum", "max", "min", "abs", "round"}
 
 
 ### init

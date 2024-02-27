@@ -1,6 +1,7 @@
 import operator
 import itertools
 from copy import deepcopy
+from enum import Enum
 from dataclasses import dataclass, field
 from decimal import Decimal, setcontext, Context
 from typing import Callable, Self
@@ -18,11 +19,18 @@ MIN = Decimal("1e-29")
 
 DEBUG_FLAG = False
 
-FUNCS = {"sum", "max", "min", "abs"}
+FUNCS = {"sum", "max", "min", "abs", "round"}
 
 Register = Callable[[str], Decimal | None]
 
 parser_logger: ParserLogger
+
+
+class PT(Enum):
+    """Parameter Type"""
+
+    Number = 1
+    Int = 2
 
 
 @dataclass
@@ -33,14 +41,18 @@ class Operator:
     """operator name"""
     func: Callable | None
     """function"""
-    pc: int = -1  # parameters count None for list
-    """parameter count"""
+    sig: list[PT] = field(default_factory=list)
+    """signature"""
     words: list[Word] = field(default_factory=list)
+
+    @property
+    def pc(self) -> int:
+        return len(self.sig)
 
 
 @dataclass
 class Number:
-    value: Decimal | None
+    value: Decimal
     words: list[Word] = field(default_factory=list)
     _is_placeholder = False
 
@@ -51,7 +63,7 @@ class Number:
         return:
             new expression func
         """
-        return cls(None)
+        return cls(Decimal(0))
 
     @property
     def isplaceholder(self) -> bool:
@@ -71,10 +83,38 @@ OPER_DICT = {
     "sum": Operator(100, "sum", sum),
     "max": Operator(100, "max", max),
     "min": Operator(100, "min", min),
-    "abs": Operator(100, "abs", abs, 1),
+    "abs": Operator(100, "abs", abs, [PT.Number]),
+    "round": Operator(100, "round", round, [PT.Number, PT.Int]),
 }
 
 ABYSS = Operator(-10000, "", None)
+
+
+def valid_parameters(
+    sig: list[PT], nums: list[Number], *, logger: ParserLogger
+) -> list[Decimal | int]:
+    """get valid parameters:
+    if parameters not match signature raise ValueError
+    """
+
+    if len(sig) == 0:
+        return [n.value for n in nums]
+
+    res: list[Decimal | int] = []
+
+    for l_type, l_num in zip(sig, nums):
+        if l_type == PT.Number:
+            res.append(l_num.value)
+
+        if l_type == PT.Int:
+            l_int_value = round(l_num.value)
+            if l_num.value != l_int_value:
+                _error = f"this param must be Integer, get {l_num.value}."
+                logger.add(_error, at=l_num.words[0].offset, forced=True)
+                raise ValueError(_error)
+            res.append(int(l_int_value))
+
+    return res
 
 
 class Chain(object):
@@ -195,14 +235,18 @@ class Chain(object):
                 self.logger.add(_error, at=op.words[0].offset, forced=True)
                 raise ValueError(_error)
 
-            # calculate
-            l_values = [n.value for n in l_nums]
-            if op.func is not None:
-                res = op.func(l_values) if op.pc < 0 else op.func(*l_values)
-            else:
+            if op.func is None:
                 _error = "operator function can't be None"
                 self.logger.add(_error, at=op.words[0].offset, forced=True)
                 raise ValueError(_error)
+
+            # get valid parameters
+            l_values = valid_parameters(
+                op.sig, [n for n in l_nums], logger=self.logger
+            )
+
+            # calculate
+            res = op.func(l_values) if op.pc <= 0 else op.func(*l_values)
 
             if abs(res) <= MIN:
                 res = Decimal(0)
