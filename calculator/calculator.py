@@ -25,8 +25,8 @@ OPER_DICT = {
     "*": Operator(20, "*", operator.mul),
     "/": Operator(20, "/", operator.truediv),
     "^": Operator(30, "^", operator.pow),
-    "(": Operator(100, "(", None),
-    ")": Operator(-100, ")", None),
+    "(": Operator(100, "(", lambda _, b: b),
+    ")": Operator(-100, ")", lambda a, _: a),
     ",": Operator(0, ",", None),
     # func's weight is same with '('
     "sum": Operator(100, "sum", sum),
@@ -68,7 +68,7 @@ def valid_parameters(
         else:
             l_at = nums[l_len].words[0].offset
             l_to = nums[-1].words[-1].end
-            
+
         logger.add(_error, at=l_at, to=l_to, forced=True)
         raise ValueError(_error)
 
@@ -119,7 +119,22 @@ class Chain(object):
 
         for word in words:
             match word.type:
-                case WordType.LEFTPAREN | WordType.RIGHTPAREN:
+                case WordType.LEFTPAREN:
+                    op = deepcopy(OPER_DICT[word.value_str])
+                    op.words = [word]
+                    op.w += base
+                    self._operators.append(op)
+                    self._nums.append(Number.placeholder())
+
+                    base += OPER_DICT[word.value_str].w
+
+                case WordType.RIGHTPAREN:
+                    op = deepcopy(OPER_DICT[word.value_str])
+                    op.words = [word]
+                    op.w = base
+                    self._operators.append(op)
+                    self._nums.append(Number.placeholder())
+
                     base += OPER_DICT[word.value_str].w
 
                 case WordType.FUNCNAME:
@@ -196,20 +211,27 @@ class Chain(object):
 
         elif op.operator in FUNC_SET:  # functions
             l_nums = []
+            l_words = []
             l_nums.append(self._nums[n + 1])
+            l_words.extend(op.words)
+            l_words.extend(self._nums[n + 1].words)
 
             self._delete(n)
 
             # get parameters
             while (
                 n < len(self._operators)
-                and self._operators[n].operator == ","
+                and self._operators[n].operator in {",", "(", ")"}
                 and self._operators[n].w == op.w
             ):
                 l_nums.append(self._nums[n + 1])
+                l_words.extend(self._operators[n].words)
+                l_words.extend(self._nums[n + 1].words)
                 self._delete(n)
 
-            l_words = op.words + list(itertools.chain(*[n.words for n in l_nums]))
+            # l_words = op.words + list(
+            #     itertools.chain(*[n.words for n in l_nums])
+            # )
 
             if op.func is None and op.ffunc is None:
                 _error = "operator function can't be None"
@@ -217,7 +239,11 @@ class Chain(object):
                 raise ValueError(_error)
 
             # get valid parameters
-            l_values = valid_parameters(op, [n for n in l_nums], logger=self.logger)
+            l_values = valid_parameters(
+                op=op,
+                nums=[n for n in l_nums if not n.isplaceholder],
+                logger=self.logger,
+            )
 
             # calculate
             res: Decimal
@@ -233,7 +259,9 @@ class Chain(object):
                 )
 
             if op.ffunc is not None:
-                f_res = op.ffunc(l_values) if op.pc <= 0 else op.ffunc(*l_values)
+                f_res = (
+                    op.ffunc(l_values) if op.pc <= 0 else op.ffunc(*l_values)
+                )
 
             if abs(res) <= MIN:
                 res = Decimal(0)
@@ -304,9 +332,7 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = (
-        " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
-    )
+    raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))

@@ -5,7 +5,7 @@ from typing import Callable, Self, Any
 
 
 __all__ = [
-    "FUNCS",
+    "FUNC_SET",
     "OPERATOR_SET",
     "WordType",
     "Word",
@@ -85,7 +85,7 @@ class Operator:
     """weight"""
     operator: str
     """operator name"""
-    func: Callable[[Any], Decimal] | None
+    func: Callable | None
     """function"""
     sig: list[Pt] = field(default_factory=list)
     """signature"""
@@ -106,7 +106,7 @@ class Number:
     value: Decimal
     words: list[Word] = field(default_factory=list)
     strvalue: str = ""
-    _is_placeholder = False
+    is_placeholder: bool = False
 
     @classmethod
     def placeholder(cls) -> Self:
@@ -115,14 +115,18 @@ class Number:
         return:
             new expression func
         """
-        return cls(Decimal(0))
+        return cls(Decimal(0), [], "", True)
 
     @property
     def isplaceholder(self) -> bool:
-        return self._is_placeholder
+        return self.is_placeholder
 
     def __str__(self) -> str:
-        if self.strvalue and not self.strvalue.isspace() and len(self.strvalue) > 0:
+        if (
+            self.strvalue
+            and not self.strvalue.isspace()
+            and len(self.strvalue) > 0
+        ):
             return self.strvalue
         else:
             return str(self.value)
