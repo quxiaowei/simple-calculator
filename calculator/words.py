@@ -1,166 +1,24 @@
 import re
-from copy import deepcopy
-from enum import Enum
-from dataclasses import dataclass
-from typing import Callable, Self
+from typing import Callable
 
 if not __package__:
+    from define import FUNC_SET, OPERATOR_SET, Word, WordType, WordList
+    from parserlogger import ParserLogger
     from debug import word_debug, debug_is_on, open_debug
 else:
+    from .define import FUNC_SET, OPERATOR_SET, Word, WordType, WordList
+    from .parserlogger import ParserLogger
     from .debug import word_debug, debug_is_on, open_debug
 
 __all__ = ["parse", "number", "ParserLogger", "format", "Word", "WordList"]
 
 
-### classes and types
-
-
-class WordType(Enum):
-    """word type"""
-
-    NUM = "Number"
-    OPERATOR = "Operator"
-    FUNCNAME = "Function"
-    NOTATION = "Notation"
-    COMMA = "','"
-    LEFTPAREN = "'('"
-    RIGHTPAREN = "')'"
-    REGISTER = "Register"
-
-    # virtual words
-    PLACEHOLDER = "P"
-    """placeholder"""
-    TRAILINGCOMMA = "TC"
-    """trailing comma"""
-
-    @property
-    def isvirtual(self) -> bool:
-        return self == WordType.PLACEHOLDER or self == WordType.TRAILINGCOMMA
-
-
-@dataclass
-class Word:
-    word_str: str
-    """raw string"""
-    value_str: str
-    """value string"""
-    type: WordType
-    """type"""
-    offset: int = 0
-    """postion in raw input"""
-
-    @classmethod
-    def placeholder(cls) -> Self:
-        """get placeholder instance"""
-        return cls("PH", "PH", WordType.PLACEHOLDER)
-
-    @property
-    def isvirtual(self) -> bool:
-        return self.type.isvirtual
-
-
-class ParserLogger(dict[int, tuple[str, WordType]]):
-    """logger for messages in parsing"""
-
-    def add(self, message: str, *, at: int, forced=False):
-        """Add message
-
-        Args:
-            message: message text
-            at:      position in raw input
-            forced:  higher priority (default False)
-        Returns:
-            None
-        """
-
-        if not forced and at in self and self[at]:
-            pass
-
-        l_type: WordType
-
-        l_type = WordType.PLACEHOLDER
-        if at not in self or not self[at]:
-            self[at] = (message, l_type)
-
-    def expect(self, type: WordType, *, at: int, forced=False):
-        """Expecting word type
-
-        Args:
-            at:     position in raw input
-            type:   word type
-            forced: higher priority (default False)
-        Returns:
-            None
-        """
-        l_text = f"expecting {type.value}"
-        l_type = type
-
-        if at not in self or not self[at]:
-            self[at] = (l_text, l_type)
-            return
-
-        if len(word_list) > 1:
-            prev_word = word_list[-1]
-            prev_type = self._left_type(prev_word.type)
-        else:
-            prev_type = self._left_type(WordType.PLACEHOLDER)
-
-        curr_type = self._right_type(l_type)
-        old_type = self._right_type(self[at][1])
-
-        if old_type == curr_type:
-            if forced:
-                self[at] = (l_text, l_type)
-            return
-
-        if prev_type != curr_type:
-            self[at] = (l_text, l_type)
-            return
-
-    def _left_type(self, type: WordType) -> str:
-        l_type: str
-        match type:
-            case WordType.NUM | WordType.RIGHTPAREN | WordType.REGISTER:
-                l_type = "operand"
-            case _:
-                l_type = "operator"
-        return l_type
-
-    def _right_type(self, type: WordType) -> str:
-        l_type: str
-        match type:
-            case WordType.NUM | WordType.REGISTER:
-                l_type = "operand"
-            case _:
-                l_type = "operator"
-        return l_type
-
-    def get(self) -> tuple[int, str]:
-        i = max(list(self.keys()))
-        return i, self[i][0]
-
-    def message(self, s: str) -> str:
-        l_buffer = list("-" * (len(s) + 4))
-        l_pos, l_log = self.get()
-        l_buffer[l_pos] = "^"
-
-        l_m1 = "  Input: " + s
-        l_m2 = "         " + "".join(l_buffer)
-        l_m3 = "  Error: " + l_log
-        return "\n".join([l_m1, l_m2, l_m3])
-
-
-WordList = list[Word]
-"""list[Word]"""
-
 ExprFunc = Callable[[str], tuple[WordList, str]]
-"""Expression Function"""
+"""Type alias: Expression Function"""
 
 
 ### constants
-
 FMT = "{3} {1!r} \t: {2}"
-
 # RE_NO = re.compile(r"[-+]?[0-9]+(,[0-9]{3})*(\.[0-9]+)?([Ee][-+]?[0-9]+)?")
 RE_NO = re.compile(r"[-+]?[0-9]+(\.[0-9]+)?([Ee][-+]?[0-9]+)?\b")
 RE_HEX_NO = re.compile(r"0[Xx][0-9a-fA-F]+\b")
@@ -169,13 +27,8 @@ RE_REGISTER = re.compile(r"(@@)|(@[a-z0-9]+)\b")
 RE_FN = re.compile(r"([\w]+)\s*")
 RE_FN2 = re.compile(r"([\w]+)\s*\(")
 
-OPERATORS = tuple("- + * / ^")
-
-FUNCS = {"sum", "max", "min", "abs", "round"}
-
 
 ### init
-
 if __name__ == "__main__":
     # open_debug()
     pass
@@ -189,6 +42,58 @@ parser_offset: int
 
 word_list: WordList
 """word list"""
+
+
+def _expect(type: WordType, at: int, forced: bool = False):
+    """Expecting word type
+
+    Args:
+        at:     position in raw input
+        type:   word type
+        forced: higher priority (default False)
+    Returns:
+        None
+    """
+    global parser_logger, word_list
+
+    def _left_type(type: WordType) -> str:
+        l_type = (
+            "operand"
+            if type in {WordType.NUM, WordType.REGISTER, WordType.RIGHTPAREN}
+            else "operator"
+        )
+        return l_type
+
+    def _right_type(type: WordType) -> str:
+        l_type: str = (
+            "operand" if type in {WordType.NUM, WordType.REGISTER} else "operator"
+        )
+        return l_type
+
+    l_text = f"expecting {type.value}"
+    l_type = type
+
+    if at not in parser_logger or not parser_logger[at]:
+        parser_logger[at] = (l_text, l_type, 0)
+        return
+
+    if len(word_list) > 1:
+        prev_word = word_list[-1]
+        prev_type = _left_type(prev_word.type)
+    else:
+        prev_type = _left_type(WordType.PLACEHOLDER)
+
+    curr_type = _right_type(l_type)
+    old_type = _right_type(parser_logger[at][1])
+
+    if old_type == curr_type:
+        if forced:
+            parser_logger[at] = (l_text, l_type, 0)
+        return
+
+    if prev_type != curr_type:
+        parser_logger[at] = (l_text, l_type, 0)
+        return
 
 
 def _all(*fns: ExprFunc) -> ExprFunc:
@@ -373,7 +278,7 @@ def number(s: str) -> tuple[WordList, str]:
 
     if result is None:
         parser_offset = l_offset
-        parser_log.expect(l_type, at=parser_offset)
+        _expect(l_type, at=parser_offset)
         return res, stream
 
     # num_str = result.group()
@@ -391,7 +296,7 @@ def operator(s: str) -> tuple[WordList, str]:
     res, stream = space(s)
     l_offset = parser_offset
 
-    for token in OPERATORS:
+    for token in OPERATOR_SET:
         if stream.startswith(token):
             stream = stream[len(token) :]
             word = Word(token, token, WordType.OPERATOR, l_offset)
@@ -402,7 +307,7 @@ def operator(s: str) -> tuple[WordList, str]:
             break
     else:
         parser_offset = l_offset
-        parser_log.expect(WordType.OPERATOR, at=parser_offset)
+        _expect(WordType.OPERATOR, at=parser_offset)
 
     return res, stream
 
@@ -436,7 +341,7 @@ def _notation(
             stream = stream[len(l_note) :]
         else:
             parser_offset = l_offset
-            parser_log.expect(type, at=parser_offset, forced=forced)
+            _expect(type, at=parser_offset, forced=forced)
 
         return res, stream
 
@@ -456,7 +361,7 @@ def fn_name(s: str) -> tuple[WordList, str]:
         return res, stream
 
     func_name = result.groups()[0]
-    if not func_name in FUNCS:
+    if not func_name in FUNC_SET:
 
         result2 = RE_FN2.match(stream)
         if result2 is None:
@@ -531,10 +436,10 @@ def expr(s: str) -> tuple[WordList, str]:
 
 
 def parse(s: str, *, log: ParserLogger | None = None) -> WordList:
-    global parser_offset, parser_log, word_list
+    global parser_offset, parser_logger, word_list
 
     parser_offset = 0
-    parser_log = log if log is not None else ParserLogger()
+    parser_logger = log if log is not None else ParserLogger()
 
     word_list = []
 
@@ -574,8 +479,7 @@ def format2(s: str):
     try:
         word_list = parse(s)
     except ValueError as e:
-        # print(e)
-        pos, log = parser_log.get()
+        pos, log = parser_logger.get()
         buffer[pos] = "^"
         print("".join(buffer))
         print(log)

@@ -14,10 +14,10 @@ except ImportError:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate, ParserLogger
+    from calculator import calculate_num, ParserLogger
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate, ParserLogger
+    from .calculator import calculate_num, ParserLogger
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
@@ -202,7 +202,7 @@ def icalculate():
         try:
             # x = replace_symbols(x)
             parser_logger = ParserLogger()
-            result = calculate(
+            result = calculate_num(
                 input=x,
                 register=lambda x: register[x.removeprefix("@")],
                 logger=parser_logger,
@@ -216,7 +216,7 @@ def icalculate():
             sys.stderr.flush()
             continue
 
-        register.write(result)
+        register.write(result.value)
 
         print(_result(register.cursor, result))
         sys.stdout.flush()
