@@ -32,9 +32,7 @@ OPER_DICT = {
     "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
-    "round": Operator(
-        w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]
-    ),
+    "round": Operator(w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]),
     "hex": Operator(
         w=100,
         operator="hex",
@@ -255,19 +253,14 @@ class Chain(object):
             )
 
             # calculate
-            res: Decimal
-            f_res: str = ""
-
-            res = op.func(*l_values)
-
-            if op.ffunc is not None:
-                f_res = op.ffunc(*l_values)
+            res: Decimal = op.func(*l_values)
+            res_str: str = op.ffunc(*l_values) if op.ffunc else ""
 
             if abs(res) <= MIN:
                 res = Decimal(0)
 
             # store the result
-            self._nums[n] = Number(res, l_words, f_res)
+            self._nums[n] = Number(res, l_words, res_str)
 
         else:  # binary operators
             if op.func is None:
@@ -277,17 +270,16 @@ class Chain(object):
 
             l_left: Number = self._nums[n]
             l_right: Number = self._nums[n + 1]
-
             res = op.func(l_left.value, l_right.value)
+
+            l_words = l_left.words + op.words + l_right.words
 
             if abs(res) <= MIN:
                 res = Decimal(0)
 
-            l_words = l_left.words + op.words + l_right.words
             self._nums[n] = Number(res, l_words)
 
-            del self._operators[n]
-            del self._nums[n + 1]
+            self._delete(n)
 
     def result(self) -> list[Number]:
         return self._nums
@@ -332,7 +324,9 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
+    raw_string = (
+        "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
+    )
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))
