@@ -66,7 +66,9 @@ def _expect(type: WordType, at: int, forced: bool = False):
 
     def _right_type(type: WordType) -> str:
         l_type: str = (
-            "operand" if type in {WordType.NUM, WordType.REGISTER} else "operator"
+            "operand"
+            if type in {WordType.NUM, WordType.REGISTER}
+            else "operator"
         )
         return l_type
 
@@ -479,7 +481,7 @@ def format2(s: str):
     try:
         word_list = parse(s)
     except ValueError as e:
-        pos, log = parser_logger.get()
+        pos, log, _ = parser_logger.get()
         buffer[pos] = "^"
         print("".join(buffer))
         print(log)

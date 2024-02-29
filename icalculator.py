@@ -14,10 +14,10 @@ except ImportError:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate_num, ParserLogger
+    from calculator import calculate_num, ParserLogger, Number
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate_num, ParserLogger
+    from .calculator import calculate_num, ParserLogger, Number
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
@@ -108,7 +108,7 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def _result(cursor: str, result: Decimal) -> str:
+def _result(cursor: str, result: Number | Decimal) -> str:
     """terminal: result output"""
 
     return (

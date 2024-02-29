@@ -1,5 +1,4 @@
 import operator
-import itertools
 from copy import deepcopy
 from decimal import Decimal, setcontext, Context
 
@@ -29,13 +28,27 @@ OPER_DICT = {
     ")": Operator(-100, ")", lambda a, _: a),
     ",": Operator(0, ",", None),
     # func's weight is same with '('
-    "sum": Operator(100, "sum", sum),
-    "max": Operator(100, "max", max),
-    "min": Operator(100, "min", min),
-    "abs": Operator(100, "abs", abs, [Pt.Num]),
-    "round": Operator(100, "round", round, [Pt.Num, Pt.Int]),
-    "hex": Operator(100, "hex", None, [Pt.Int], hex),
-    "oct": Operator(100, "oct", None, [Pt.Int], oct),
+    "sum": Operator(w=100, operator="sum", func=lambda *args: sum(list(args))),
+    "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
+    "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
+    "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
+    "round": Operator(
+        w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]
+    ),
+    "hex": Operator(
+        w=100,
+        operator="hex",
+        func=lambda a, *_: Decimal(a),
+        sig=[Pt.Int],
+        ffunc=hex,
+    ),
+    "oct": Operator(
+        w=100,
+        operator="oct",
+        func=lambda a, *_: Decimal(a),
+        sig=[Pt.Int],
+        ffunc=oct,
+    ),
 }
 
 ABYSS = Operator(-10000, "", None)
@@ -72,7 +85,7 @@ def valid_parameters(
         logger.add(_error, at=l_at, to=l_to, forced=True)
         raise ValueError(_error)
 
-    # check parameters type
+    # check and convert parameters type
     res: list[Decimal | int] = []
 
     for l_type, l_num in zip(op.sig, nums):
@@ -229,11 +242,7 @@ class Chain(object):
                 l_words.extend(self._nums[n + 1].words)
                 self._delete(n)
 
-            # l_words = op.words + list(
-            #     itertools.chain(*[n.words for n in l_nums])
-            # )
-
-            if op.func is None and op.ffunc is None:
+            if op.func is None:
                 _error = "operator function can't be None"
                 self.logger.add(_error, at=op.words[0].offset, forced=True)
                 raise ValueError(_error)
@@ -249,19 +258,10 @@ class Chain(object):
             res: Decimal
             f_res: str = ""
 
-            if op.func is not None:
-                res = op.func(l_values) if op.pc <= 0 else op.func(*l_values)
-            else:
-                res = (
-                    l_values[0]
-                    if isinstance(l_values[0], Decimal)
-                    else Decimal(l_values[0])
-                )
+            res = op.func(*l_values)
 
             if op.ffunc is not None:
-                f_res = (
-                    op.ffunc(l_values) if op.pc <= 0 else op.ffunc(*l_values)
-                )
+                f_res = op.ffunc(*l_values)
 
             if abs(res) <= MIN:
                 res = Decimal(0)
