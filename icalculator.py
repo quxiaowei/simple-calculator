@@ -14,13 +14,13 @@ except ImportError:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate, ParserLogger
+    from calculator import calculate_num, ParserLogger, Number
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate, ParserLogger
+    from .calculator import calculate_num, ParserLogger, Number
     from .queueregister import QueueRegister
 
-__all__ = ["icalculate"]
+__all__ = ["icalculate", "_red", "_blue", "_green"]
 
 
 class Mode(Enum):
@@ -45,7 +45,7 @@ MODE: Mode = Mode.WALKING
 register = QueueRegister[Decimal]()
 """ Register """
 
-parser_log: ParserLogger
+parser_logger: ParserLogger
 """ Parser logger"""
 
 
@@ -108,7 +108,7 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def _result(cursor: str, result: Decimal) -> str:
+def _result(cursor: str, result: Number | Decimal) -> str:
     """terminal: result output"""
 
     return (
@@ -128,6 +128,30 @@ def _message(message) -> str:
     return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
 
 
+def _blue(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.BLUE + f"{ message }" + Style.RESET_ALL
+
+
+def _red(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.RED + f"{ message }" + Style.RESET_ALL
+
+
+def _yellow(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.YELLOW + f"{ message }" + Style.RESET_ALL
+
+
+def _green(message) -> str:
+    """terminal: blue output"""
+
+    return Fore.GREEN + f"{ message }" + Style.RESET_ALL
+
+
 def _prompt() -> str:
     """terminal: prompt output"""
 
@@ -140,7 +164,7 @@ def _prompt() -> str:
 def icalculate():
     """iteractive processor"""
 
-    global MODE, parser_log
+    global MODE, parser_logger
 
     print(_header())
     sys.stdout.flush()
@@ -177,22 +201,22 @@ def icalculate():
 
         try:
             # x = replace_symbols(x)
-            parser_log = ParserLogger()
-            result = calculate(
+            parser_logger = ParserLogger()
+            result = calculate_num(
                 input=x,
                 register=lambda x: register[x.removeprefix("@")],
-                logger=parser_log,
+                logger=parser_logger,
             )
 
             if result is None:
                 raise ValueError("not valid")
 
         except ValueError as e:
-            print(_error(e, parser_log.message(x)), file=sys.stderr)
+            print(_error(e, parser_logger.message(x)), file=sys.stderr)
             sys.stderr.flush()
             continue
 
-        register.write(result)
+        register.write(result.value)
 
         print(_result(register.cursor, result))
         sys.stdout.flush()

@@ -1,60 +1,22 @@
 import operator
-import itertools
 from copy import deepcopy
-from dataclasses import dataclass, field
 from decimal import Decimal, setcontext, Context
-from typing import Callable, Self
 
 if not __package__:
-    from words import parse, WordType, Word, ParserLogger
+    from define import FUNC_SET, Operator, Number, Pt, WordType, Register
+    from parserlogger import ParserLogger
+    from words import parse
 else:
-    from .words import parse, WordType, Word, ParserLogger
+    from .define import FUNC_SET, Operator, Number, Pt, WordType, Register
+    from .parserlogger import ParserLogger
+    from .words import parse
 
-__all__ = ["calculate", "Register"]
+__all__ = ["calculate", "error_message", "Register"]
 
-setcontext(Context(prec=30))
 
 MIN = Decimal("1e-29")
 
 DEBUG_FLAG = False
-
-FUNCS = {"sum", "max", "min", "abs"}
-
-Register = Callable[[str], Decimal | None]
-
-
-@dataclass
-class Operator:
-    w: int
-    """weight"""
-    operator: str
-    """operator name"""
-    func: Callable | None
-    """function"""
-    pc: int = -1  # parameters count None for list
-    """parameter count"""
-    words: list[Word] = field(default_factory=list)
-
-
-@dataclass
-class Number:
-    value: Decimal | None
-    words: list[Word] = field(default_factory=list)
-    _is_placeholder = False
-
-    @classmethod
-    def placeholder(cls) -> Self:
-        """get placehold number instance
-
-        return:
-            new expression func
-        """
-        return cls(None)
-
-    @property
-    def isplaceholder(self) -> bool:
-        return self._is_placeholder
-
 
 OPER_DICT = {
     "+": Operator(10, "+", operator.add),
@@ -62,17 +24,86 @@ OPER_DICT = {
     "*": Operator(20, "*", operator.mul),
     "/": Operator(20, "/", operator.truediv),
     "^": Operator(30, "^", operator.pow),
-    "(": Operator(100, "(", None),
-    ")": Operator(-100, ")", None),
+    "(": Operator(100, "(", lambda _, b: b),
+    ")": Operator(-100, ")", lambda a, _: a),
     ",": Operator(0, ",", None),
     # func's weight is same with '('
-    "sum": Operator(100, "sum", sum),
-    "max": Operator(100, "max", max),
-    "min": Operator(100, "min", min),
-    "abs": Operator(100, "abs", abs, 1),
+    "sum": Operator(w=100, operator="sum", func=lambda *args: sum(list(args))),
+    "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
+    "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
+    "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
+    "round": Operator(w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]),
+    "hex": Operator(
+        w=100,
+        operator="hex",
+        func=lambda a, *_: Decimal(a),
+        sig=[Pt.Int],
+        ffunc=hex,
+    ),
+    "oct": Operator(
+        w=100,
+        operator="oct",
+        func=lambda a, *_: Decimal(a),
+        sig=[Pt.Int],
+        ffunc=oct,
+    ),
 }
 
 ABYSS = Operator(-10000, "", None)
+
+
+parser_logger: ParserLogger
+
+setcontext(Context(prec=30))
+
+
+def valid_parameters(
+    op: Operator, nums: list[Number], *, logger: ParserLogger
+) -> list[Decimal | int]:
+    """get valid parameters:
+    if parameters not match signature raise ValueError
+    """
+
+    # check count of parameters
+    l_len = len(op.sig)
+
+    if l_len == 0:
+        return [n.value for n in nums]
+
+    if l_len > 0 and len(nums) != l_len:
+        _error = f"func {op.operator}: expecting { l_len } parameters got { len(nums) }"
+
+        if l_len > len(nums):
+            l_at = nums[-1].words[-1].end
+            l_to = 0
+        else:
+            l_at = nums[l_len].words[0].offset
+            l_to = nums[-1].words[-1].end
+
+        logger.add(_error, at=l_at, to=l_to, forced=True)
+        raise ValueError(_error)
+
+    # check and convert parameters type
+    res: list[Decimal | int] = []
+
+    for l_type, l_num in zip(op.sig, nums):
+        if l_type == Pt.Num:
+            res.append(l_num.value)
+
+        if l_type == Pt.Int:
+            l_int_value = round(l_num.value)
+            if l_num.value != l_int_value:
+                _error = f"this param must be Integer, got {l_num.value}"
+                logger.add(
+                    _error,
+                    at=l_num.words[0].offset,
+                    to=l_num.words[-1].end,
+                    forced=True,
+                )
+                raise ValueError(_error)
+            res.append(int(l_int_value))
+
+    return res
 
 
 class Chain(object):
@@ -81,13 +112,13 @@ class Chain(object):
         raw: str,
         *,
         register: Register | None = None,
-        logger: ParserLogger | None = None,
+        logger: ParserLogger,
     ):
 
         self._operators: list[Operator] = []
         self._nums: list[Number] = []
         self._register = register
-        self.logger = logger if logger is not None else ParserLogger()
+        self.logger = logger
 
         base = 0
         words = parse(raw, log=self.logger)
@@ -99,13 +130,30 @@ class Chain(object):
 
         for word in words:
             match word.type:
-                case WordType.LEFTPAREN | WordType.RIGHTPAREN:
+                case WordType.LEFTPAREN:
+                    op = deepcopy(OPER_DICT[word.value_str])
+                    op.words = [word]
+                    op.w += base
+                    self._operators.append(op)
+                    self._nums.append(Number.placeholder())
+
+                    base += OPER_DICT[word.value_str].w
+
+                case WordType.RIGHTPAREN:
+                    op = deepcopy(OPER_DICT[word.value_str])
+                    op.words = [word]
+                    op.w = base
+                    self._operators.append(op)
+                    self._nums.append(Number.placeholder())
+
                     base += OPER_DICT[word.value_str].w
 
                 case WordType.FUNCNAME:
-                    if word.value_str not in FUNCS:
+                    if word.value_str not in FUNC_SET:
                         _error = f"unknown function: {word.word_str}"
-                        self.logger.add(_error, at=word.offset, forced=True)
+                        self.logger.add(
+                            _error, at=word.offset, to=word.end, forced=True
+                        )
                         raise ValueError(_error)
 
                     op = deepcopy(OPER_DICT[word.value_str])
@@ -172,44 +220,47 @@ class Chain(object):
         if op.operator == ",":
             pass
 
-        elif op.operator in FUNCS:  # functions
+        elif op.operator in FUNC_SET:  # functions
             l_nums = []
+            l_words = []
             l_nums.append(self._nums[n + 1])
+            l_words.extend(op.words)
+            l_words.extend(self._nums[n + 1].words)
 
             self._delete(n)
 
             # get parameters
             while (
                 n < len(self._operators)
-                and self._operators[n].operator == ","
+                and self._operators[n].operator in {",", "(", ")"}
                 and self._operators[n].w == op.w
             ):
                 l_nums.append(self._nums[n + 1])
+                l_words.extend(self._operators[n].words)
+                l_words.extend(self._nums[n + 1].words)
                 self._delete(n)
 
-            # check count of parameters
-            if op.pc > 0 and len(l_nums) != op.pc:
-                _error = f'func: "{ op.operator }" expecting { op.pc } parameters got { len(l_nums) }'
-                self.logger.add(_error, at=op.words[0].offset, forced=True)
-                raise ValueError(_error)
-
-            # calculate
-            l_values = [n.value for n in l_nums]
-            if op.func is not None:
-                res = op.func(l_values) if op.pc < 0 else op.func(*l_values)
-            else:
+            if op.func is None:
                 _error = "operator function can't be None"
                 self.logger.add(_error, at=op.words[0].offset, forced=True)
                 raise ValueError(_error)
+
+            # get valid parameters
+            l_values = valid_parameters(
+                op=op,
+                nums=[n for n in l_nums if not n.isplaceholder],
+                logger=self.logger,
+            )
+
+            # calculate
+            res: Decimal = op.func(*l_values)
+            res_str: str = op.ffunc(*l_values) if op.ffunc else ""
 
             if abs(res) <= MIN:
                 res = Decimal(0)
 
             # store the result
-            l_words = op.words + list(
-                itertools.chain(*[n.words for n in l_nums])
-            )
-            self._nums[n] = Number(res, l_words)
+            self._nums[n] = Number(res, l_words, res_str)
 
         else:  # binary operators
             if op.func is None:
@@ -219,30 +270,33 @@ class Chain(object):
 
             l_left: Number = self._nums[n]
             l_right: Number = self._nums[n + 1]
-
             res = op.func(l_left.value, l_right.value)
+
+            l_words = l_left.words + op.words + l_right.words
 
             if abs(res) <= MIN:
                 res = Decimal(0)
 
-            l_words = l_left.words + op.words + l_right.words
             self._nums[n] = Number(res, l_words)
 
-            del self._operators[n]
-            del self._nums[n + 1]
+            self._delete(n)
 
     def result(self) -> list[Number]:
         return self._nums
 
 
-def calculate(
+def calculate_num(
     input: str,
     *,
-    register: Register | None = None,
     logger: ParserLogger | None = None,
-) -> Decimal | None:
+    register: Register | None = None,
+) -> Number | None:
 
-    chain = Chain(input, register=register, logger=logger)
+    global parser_logger
+
+    parser_logger = logger if logger is not None else ParserLogger()
+
+    chain = Chain(input, register=register, logger=parser_logger)
     while len(chain) != 0:
         if DEBUG_FLAG:
             print(chain.result())
@@ -250,13 +304,29 @@ def calculate(
         i = max(range(len(chain)), key=lambda a: chain[a].w)
         chain.reduce_chain(i)
 
-    return chain.result()[0].value
+    return chain.result()[0]
+
+
+def calculate(
+    input: str,
+    *,
+    logger: ParserLogger | None = None,
+    register: Register | None = None,
+) -> Decimal | None:
+    res = calculate_num(input, logger=logger, register=register)
+    return res if res is None else res.value
+
+
+def error_message(raw_input: str):
+    return parser_logger.message(raw_input)
 
 
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = " 112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) "
+    raw_string = (
+        "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
+    )
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))

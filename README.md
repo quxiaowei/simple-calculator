@@ -21,13 +21,13 @@ for example:
 ```
 >>> 1
 @a: 1
->>> $a + 2
+>>> @a + 2
 @b: 3
 ...
 @z: 351
->>> $z + 1
+>>> @z + 1
 @a: 352
->>> $_ - 1
+>>> @@- 1
 @b: 351
 ```
 
@@ -38,3 +38,20 @@ for example:
 3. Scientific: "-123.12E-123" or "-123.12e+123"
 
 ### add terminal highlight in -i
+
+### add better error message 
+```
+>>> abs(sum(1,2,3),11)
+  Input: abs(sum(1,2,3),11)
+         ---------------^^-----
+  Error: func abs: expecting 1 parameters got 2
+>>>
+```
+
+```
+>>> sum(1,
+  Input: sum(1,
+         ------^---
+  Error: expecting Number
+>>>
+```
