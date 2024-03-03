@@ -1,6 +1,11 @@
 from collections import deque
 from typing import TypeVar, Generic, Optional
-from collections.abc import Iterator, Iterable, Generator, Reversible, Sequence
+from collections.abc import Iterator, Iterable, Generator, Sequence
+
+if not __package__:
+    from calculator.define import Register
+else:
+    from .calculator.define import Register
 
 __all__ = ["QueueRegister"]
 
@@ -69,7 +74,7 @@ class register_item(Generic[T, V]):
         return f"register_item({ self.type })"
 
 
-class QueueRegister(Generic[T]):
+class QueueRegister(Register[T]):
     """
     a loop dict-like structure with keys a-z, iterable, subscriptable.\n
     support KeysView, ValuesView, ItemsView
@@ -164,7 +169,7 @@ class QueueRegister(Generic[T]):
             self._keys, self._registor, _type="items"
         )
 
-    def _read(self, key: str) -> Optional[T]:
+    def _read(self, key: str) -> T:
         """
         read value by key or index
         """
@@ -172,9 +177,10 @@ class QueueRegister(Generic[T]):
         if l_key == self._PREVIOUS_SYMBOL:
             l_key = self._keys[-1]
 
-        if l_key in self._registor:
-            return self._registor[l_key]
-        return None
+        if l_key not in self._registor or self._registor[l_key] is None:
+            raise ValueError(f"unknow register: {l_key}")
+
+        return self._registor[l_key]
 
     def __contains__(self, key: str) -> bool:
         """
@@ -202,6 +208,28 @@ class QueueRegister(Generic[T]):
             return False
 
         return True
+
+    ### for calculator
+    def read(self, key: str) -> Optional[T]:
+        return self._read(key)
+
+    def read_list(self, keyrange: tuple[str, str]) -> list[T]:
+        l_list: list[T] = []
+
+        key_fr = keyrange[0]
+        key_to = keyrange[1]
+
+        index_fr = self._keys.index(key_fr)
+        index_to = self._keys.index(key_to) + 1
+
+        if index_to <= index_fr:
+            index_to += QUEUE_LEN
+        for i in range(index_fr, index_to):
+            l_item = self[i]
+            if l_item:
+                l_list.append(l_item)
+
+        return l_list
 
     @property
     def cursor(self) -> str:

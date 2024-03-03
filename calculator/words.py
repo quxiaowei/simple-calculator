@@ -44,7 +44,7 @@ word_list: WordList
 """word list"""
 
 
-def _expect(type: WordType, at: int, forced: bool = False):
+def _expect(type: WordType, *, at: int, forced: bool = False):
     """Expecting word type
 
     Args:
@@ -292,6 +292,31 @@ def number(s: str) -> tuple[WordList, str]:
 
 
 @word_debug(FMT)
+def register_list(s: str) -> tuple[WordList, str]:
+    global _error_message, parser_offset, word_list
+
+    res, stream = space(s)
+    l_offset = parser_offset
+
+    l_type = WordType.REGISTERLIST
+
+    RE_REGISTERLIST = re.compile(r"((@@)|(@[a-z0-9]+))\_((@)|([a-z0-9]+))\b")
+    result = RE_REGISTERLIST.match(stream)
+
+    if result is None:
+        parser_offset = l_offset
+        return res, stream
+
+    num_str = result.group()
+    word = Word(result.group(), num_str, l_type, l_offset)
+    word_list.append(word)
+
+    span = result.span()
+    parser_offset += span[1]
+    return [word], stream[span[1] :]
+
+
+@word_debug(FMT)
 def operator(s: str) -> tuple[WordList, str]:
     global parser_offset, word_list
 
@@ -425,7 +450,11 @@ def e_fn(s: str) -> tuple[WordList, str]:
     return _all(
         fn_name,
         left_paren,
-        _do(expr, _repeat(_all(comma, expr)), trailing_comma),
+        _do(
+            _any(register_list, expr),
+            _repeat(_all(comma, _any(register_list, expr))),
+            trailing_comma,
+        ),
         right_paren,
     )(s)
 
@@ -508,12 +537,13 @@ def format2(s: str):
 
 
 if __name__ == "__main__":
-    # open_debug()
+    open_debug()
     # parse("(2 + 4 * 4 --4 * 12) + 1 + ((-2 + 12)) ")
-    format2(" 2, ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
-    format2("( 2 * sum 1, max(2, 3), 4, 5 )) - 1")
-    format2(" 2 + ( @aa * sum(1, max(2, 3), 4, 5 )) - (abs(-10) + 1 + 1")
-    format2("  sum (1, , 2 ) ")
+    parse("sum(@a-b)")
+    # format2(" 2, ( 2 * sum (1, max(2, 3), 4, 5 )) - 1")
+    # format2("( 2 * sum 1, max(2, 3), 4, 5 )) - 1")
+    # format2(" 2 + ( @aa * sum(1, max(2, 3), 4, 5 )) - (abs(-10) + 1 + 1")
+    # format2("  sum (1, , 2 ) ")
 
     # parse("max(1)")
     # parse("max(1,)")

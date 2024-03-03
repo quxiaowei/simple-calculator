@@ -49,26 +49,6 @@ parser_logger: ParserLogger
 """ Parser logger"""
 
 
-def replace_symbols(input: str) -> str:
-    """[deprecated] replace symbol in input with register value based on text"""
-
-    new_str = input
-    m = re.findall(r"\@[a-z,_]{1}", new_str)
-    for item in set(m):
-        symbol = item[1]
-
-        if symbol not in register and symbol != register.PREVIOUS_SYMBOL:
-            raise ValueError(f"register { item } does not exists")
-
-        value = str(register[symbol])
-        new_str = new_str.replace(item, f" {value} ")
-
-    if DEBUG:
-        print(f"match:{ m }, replace:{ new_str }")
-
-    return new_str
-
-
 def _header() -> str:
     """terminal: header output"""
 
@@ -204,7 +184,7 @@ def icalculate():
             parser_logger = ParserLogger()
             result = calculate_num(
                 input=x,
-                register=lambda x: register[x.removeprefix("@")],
+                register=register,  ###lambda x: register[x.removeprefix("@")],
                 logger=parser_logger,
             )
 
