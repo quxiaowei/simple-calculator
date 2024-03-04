@@ -188,7 +188,8 @@ class Chain(object):
                         raise ValueError(_error)
 
                     try:
-                        res = self._register.read(word.value_str)
+                        reg_key = word.value_str.removeprefix("@")
+                        res = self._register.read(reg_key)
                     except ValueError as e:
                         _error = f"{e}"
                         self.logger.add(
