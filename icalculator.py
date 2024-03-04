@@ -102,6 +102,12 @@ def _result(cursor: str, result: Number | Decimal) -> str:
     )
 
 
+def _result2(cursor: str, result: Number | Decimal) -> str:
+    """terminal: result output"""
+
+    return Fore.CYAN + f"@{ cursor }: " + f"{ result }" + Style.RESET_ALL
+
+
 def _message(message) -> str:
     """terminal: message output"""
 
@@ -141,13 +147,15 @@ def _prompt() -> str:
         return Fore.BLUE + "=== "
 
 
-def icalculate():
+def icalculate(stay=False):
     """iteractive processor"""
 
     global MODE, parser_logger
 
     print(_header())
     sys.stdout.flush()
+
+    MODE = Mode.STAY if stay else Mode.WALKING
 
     while True:
         x = str(input(_prompt())).strip().lower()
@@ -162,7 +170,10 @@ def icalculate():
                 continue
             case "save":
                 if MODE == Mode.STAY:
+                    print(_result(register.cursor, result))
                     register.next_one()
+                else:
+                    print(_message("'save' does not work in walking mode"))
                 continue
             case "tag":
                 pass
@@ -202,7 +213,11 @@ def icalculate():
 
         register.write(result.value)
 
-        print(_result(register.cursor, result))
+        if MODE == Mode.STAY:
+            print(_result2(register.cursor, result))
+        else:
+            print(_result(register.cursor, result))
+
         sys.stdout.flush()
 
         if MODE == MODE.WALKING:
@@ -244,8 +259,12 @@ def show_results():
     count = 0
 
     for key, value in reversed(register.items()):
-        if key == register.cursor:  # and MODE == Mode.WALKING:
+        if key == register.cursor:
+            if MODE == Mode.STAY:
+                print(_result2(key, value))
+                count += 1
             continue
+
         print(_result(key, value))
         count += 1
 

@@ -29,6 +29,15 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "-s",
+    "--stay",
+    required=False,
+    action="store_true",
+    default=True,
+    help="STAY mode. not work with non-interactive mode",
+)
+
+parser.add_argument(
     "input",
     type=str,
     nargs="?",
@@ -39,7 +48,7 @@ args = parser.parse_args()
 # print(args)
 
 if args.interactive:
-    icalculate()
+    icalculate(args.stay)
 else:
     if args.input and len(args.input) > 0:
         string_input = args.input
