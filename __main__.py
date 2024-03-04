@@ -49,6 +49,7 @@ else:
             file=sys.stderr,
         )
         sys.stderr.flush()
+        sys.exit()
 
     try:
         result = calculate(string_input)

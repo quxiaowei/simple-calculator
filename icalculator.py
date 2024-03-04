@@ -160,6 +160,10 @@ def icalculate():
             case "show":
                 show_results()
                 continue
+            case "save":
+                if MODE == Mode.STAY:
+                    register.next_one()
+                continue
             case "tag":
                 pass
             case "reset" | "clear":
