@@ -1,5 +1,4 @@
 import sys
-import re
 from enum import Enum
 from decimal import Decimal
 
@@ -14,10 +13,10 @@ except ImportError:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate_num, ParserLogger, Number
+    from calculator import calculate_num, ParserLogger, Number, RItem
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate_num, ParserLogger, Number
+    from .calculator import calculate_num, ParserLogger, Number, RItem
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
@@ -42,7 +41,7 @@ VERSION = "0.0.1"
 MODE: Mode = Mode.WALKING
 """register mode"""
 
-register = QueueRegister[Decimal]()
+register = QueueRegister[RItem]()
 """ Register """
 
 parser_logger: ParserLogger
@@ -88,7 +87,7 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def _result(cursor: str, result: Number | Decimal) -> str:
+def _result(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
     return (
@@ -97,15 +96,18 @@ def _result(cursor: str, result: Number | Decimal) -> str:
         + f"@{ cursor }: "
         + Style.RESET_ALL
         + Fore.YELLOW
-        + f"{ result }"
+        + f"{ item.value }"
+        + Fore.WHITE
+        + "\t-- "
+        + item.tag
         + Style.RESET_ALL
     )
 
 
-def _result2(cursor: str, result: Number | Decimal) -> str:
+def _result2(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
-    return Fore.CYAN + f"@{ cursor }: " + f"{ result }" + Style.RESET_ALL
+    return Fore.CYAN + f"@{ cursor }: " + f"{ item.value }" + Style.RESET_ALL
 
 
 def _message(message) -> str:
@@ -147,7 +149,7 @@ def _prompt() -> str:
         return Fore.BLUE + "=== "
 
 
-def icalculate(stay=False):
+def icalculate(stay=True):
     """iteractive processor"""
 
     global MODE, parser_logger
@@ -159,7 +161,11 @@ def icalculate(stay=False):
 
     while True:
         x = str(input(_prompt())).strip().lower()
-        match x:
+        cmds = x.split(" ", maxsplit=1)
+        cmd: str = cmds[0]
+        tag: str = cmds[1] if len(cmds) > 1 else ""
+
+        match cmd:
             case "exit":
                 return
             case "back":
@@ -170,7 +176,9 @@ def icalculate(stay=False):
                 continue
             case "save":
                 if MODE == Mode.STAY:
-                    print(_result(register.cursor, result))
+                    ritem = RItem(result.value, tag=tag)
+                    register.write(ritem)
+                    print(_result(register.cursor, ritem))
                     register.next_one()
                 else:
                     print(_message("'save' does not work in walking mode"))
@@ -211,12 +219,13 @@ def icalculate(stay=False):
             sys.stderr.flush()
             continue
 
-        register.write(result.value)
+        ritem = RItem(result.value)
+        register.write(ritem)
 
         if MODE == Mode.STAY:
-            print(_result2(register.cursor, result))
+            print(_result2(register.cursor, ritem))
         else:
-            print(_result(register.cursor, result))
+            print(_result(register.cursor, ritem))
 
         sys.stdout.flush()
 
@@ -258,14 +267,14 @@ def show_results():
 
     count = 0
 
-    for key, value in reversed(register.items()):
+    for key, item in reversed(register.items()):
         if key == register.cursor:
             if MODE == Mode.STAY:
-                print(_result2(key, value))
+                print(_result2(key, item))
                 count += 1
             continue
 
-        print(_result(key, value))
+        print(_result(key, item))
         count += 1
 
     if count <= 0:
