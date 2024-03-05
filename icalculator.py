@@ -96,10 +96,11 @@ def _result(cursor: str, item: RItem) -> str:
         + f"@{ cursor }: "
         + Style.RESET_ALL
         + Fore.YELLOW
-        + f"{ item.value }"
+        + f"{ item.value:<20}"
         + Fore.WHITE
-        + "\t-- "
+        + '\t "'
         + item.tag
+        + '"'
         + Style.RESET_ALL
     )
 
@@ -107,7 +108,16 @@ def _result(cursor: str, item: RItem) -> str:
 def _result2(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
-    return Fore.CYAN + f"@{ cursor }: " + f"{ item.value }" + Style.RESET_ALL
+    return (
+        Fore.CYAN
+        + f"@{ cursor }: "
+        + f"{ item.value:<20}"
+        + Fore.WHITE
+        + '\t "'
+        + item.tag
+        + '"'
+        + Style.RESET_ALL
+    )
 
 
 def _message(message) -> str:
@@ -164,6 +174,7 @@ def icalculate(stay=True):
         cmds = x.split(" ", maxsplit=1)
         cmd: str = cmds[0]
         tag: str = cmds[1] if len(cmds) > 1 else ""
+        result: Number
 
         match cmd:
             case "exit":
@@ -176,12 +187,17 @@ def icalculate(stay=True):
                 continue
             case "save":
                 if MODE == Mode.STAY:
-                    ritem = RItem(result.value, tag=tag)
-                    register.write(ritem)
-                    print(_result(register.cursor, ritem))
-                    register.next_one()
+                    try:
+                        ritem = register.read(register.cursor)
+                        if tag and len(tag) > 0:
+                            ritem.tag = tag
+                        print(_result(register.cursor, ritem))
+                        register.next_one()
+                    except ValueError as e:
+                        print(_error("no value to save!"))
                 else:
                     print(_message("'save' does not work in walking mode"))
+
                 continue
             case "tag":
                 pass
@@ -205,21 +221,24 @@ def icalculate(stay=True):
         try:
             # x = replace_symbols(x)
             parser_logger = ParserLogger()
-            result = calculate_num(
+            l_result = calculate_num(
                 input=x,
                 register=register,  ###lambda x: register[x.removeprefix("@")],
                 logger=parser_logger,
             )
 
-            if result is None:
+            if l_result is None:
                 raise ValueError("not valid")
+
+            result = l_result
 
         except ValueError as e:
             print(_error(e, parser_logger.message(x)), file=sys.stderr)
             sys.stderr.flush()
             continue
 
-        ritem = RItem(result.value)
+        tag = x
+        ritem = RItem(result.value, tag=tag)
         register.write(ritem)
 
         if MODE == Mode.STAY:
@@ -258,7 +277,7 @@ def reset_queue():
     """reset register to initial status"""
 
     global register
-    register = QueueRegister[Decimal]()
+    register = QueueRegister[RItem]()
     print(_message('the results are cleared, starting from "a"'))
 
 

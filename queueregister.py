@@ -210,7 +210,7 @@ class QueueRegister(Register[T]):
         return True
 
     ### for calculator
-    def read(self, key: str) -> Optional[T]:
+    def read(self, key: str) -> T:
         return self._read(key)
 
     def read_list(self, keyrange: tuple[str, str]) -> list[T]:

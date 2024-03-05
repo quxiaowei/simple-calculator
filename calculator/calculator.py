@@ -33,7 +33,9 @@ OPER_DICT = {
     "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
-    "round": Operator(w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]),
+    "round": Operator(
+        w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]
+    ),
     "hex": Operator(
         w=100,
         operator="hex",
@@ -358,9 +360,7 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = (
-        "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
-    )
+    raw_string = "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))
