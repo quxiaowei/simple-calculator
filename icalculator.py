@@ -89,12 +89,16 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def _printable_len(s: str) -> str:
+def printable_width(s: str) -> str:
     ss = re.sub(r".\[\d+m", "", s)
     count = 0
     for c in list(ss):
-        if c.isprintable():
+        if not c.isprintable():
+            continue
+        if c.isascii():
             count += 1
+        else:
+            count += 2
     return count
 
 
@@ -115,10 +119,10 @@ def _result(cursor: str, item: RItem) -> str:
         + f"{item.value}"
         + Style.RESET_ALL
     )
-    len_res = _printable_len(s_result)
+    len_res = printable_width(s_result)
 
     s_tag = Fore.WHITE + f'"{item.tag}"' + Style.RESET_ALL
-    len_tag = _printable_len(s_tag)
+    len_tag = printable_width(s_tag)
 
     zlen = w_cols - len_res - len_tag
 
