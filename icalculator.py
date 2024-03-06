@@ -1,4 +1,6 @@
 import sys
+import os
+import re
 from enum import Enum
 from decimal import Decimal
 
@@ -87,22 +89,59 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
+def _printable_len(s: str) -> str:
+    ss = re.sub(r".\[\d+m", "", s)
+    count = 0
+    for c in list(ss):
+        if c.isprintable():
+            count += 1
+    return count
+
+
 def _result(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
-    return (
+    size = os.get_terminal_size()
+    w_cols = min(size.columns, 60)
+
+    SEP = 5
+
+    s_result = (
         Fore.RED
         + Style.BRIGHT
-        + f"@{ cursor }: "
+        + f"@{cursor}: "
         + Style.RESET_ALL
         + Fore.YELLOW
-        + f"{ item.value:<20}"
-        + Fore.WHITE
-        + '\t "'
-        + item.tag
-        + '"'
+        + f"{item.value}"
         + Style.RESET_ALL
     )
+    len_res = _printable_len(s_result)
+
+    s_tag = Fore.WHITE + f'"{item.tag}"' + Style.RESET_ALL
+    len_tag = _printable_len(s_tag)
+
+    zlen = w_cols - len_res - len_tag
+
+    if zlen < SEP:
+        if w_cols < s_tag:
+            s_tag = s_tag[:w_cols-1]+"…"
+        return s_result + "\n" + s_tag[:w_cols]
+
+    return s_result + " "*zlen + s_tag
+
+    # return (
+    #     Fore.RED
+    #     + Style.BRIGHT
+    #     + f"@{ cursor }: "
+    #     + Style.RESET_ALL
+    #     + Fore.YELLOW
+    #     + f"{ item.value:<20}"
+    #     + Fore.WHITE
+    #     + '\t "'
+    #     + item.tag
+    #     + '"'
+    #     + Style.RESET_ALL
+    # )
 
 
 def _result2(cursor: str, item: RItem) -> str:
@@ -110,12 +149,8 @@ def _result2(cursor: str, item: RItem) -> str:
 
     return (
         Fore.CYAN
-        + f"@{ cursor }: "
-        + f"{ item.value:<20}"
-        + Fore.WHITE
-        + '\t "'
-        + item.tag
-        + '"'
+        + f"@{cursor}: "
+        + f"{item.value}"
         + Style.RESET_ALL
     )
 
