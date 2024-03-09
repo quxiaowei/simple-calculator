@@ -199,61 +199,57 @@ def icalculate(stay=True):
     while True:
         x = str(input(_prompt())).strip().lower()
 
-        if x.startswith(":"):
-            cmds = x.split(" ", maxsplit=1)
-            cmd: str = cmds[0]
-            tag: str = cmds[1] if len(cmds) > 1 else ""
-            result: Number
+        cmds = x.split(" ", maxsplit=1)
+        cmd: str = cmds[0]
+        tag: str = cmds[1] if len(cmds) > 1 else ""
+        result: Number
 
-            match cmd:
-                case ":exit":
-                    return
+        match cmd:
+            case "exit":
+                return
 
-                case ":back":
+            case "back":
+                register.go_back()
+                continue
+
+            case "show":
+                show_results()
+                continue
+
+            case "reset":
+                reset_queue()
+                continue
+
+            case "stay":
+                if MODE == Mode.WALKING:
+                    MODE = Mode.STAY
                     register.go_back()
+                continue
+
+            case "go":
+                if MODE == Mode.STAY:
+                    MODE = Mode.WALKING
+                    register.next_one()
+                continue
+
+            case "ref":
+                show_ref()
+                continue
+
+            case "save":
+                if MODE != Mode.STAY:
+                    print(_message("'save' does not work in walking mode"))
                     continue
 
-                case ":show":
-                    show_results()
-                    continue
-
-                case ":reset":
-                    reset_queue()
-                    continue
-
-                case ":stay":
-                    if MODE == Mode.WALKING:
-                        MODE = Mode.STAY
-                        register.go_back()
-                    continue
-
-                case ":go":
-                    if MODE == Mode.STAY:
-                        MODE = Mode.WALKING
-                        register.next_one()
-                    continue
-
-                case ":ref":
-                    show_ref()
-                    continue
-
-                case ":save":
-                    if MODE != Mode.STAY:
-                        print(_message("'save' does not work in walking mode"))
-                        continue
-
-                    try:
-                        ritem = register.read(register.cursor)
-                        if tag and len(tag) > 0:
-                            ritem.tag = tag
-                        print(_result(register.cursor, ritem))
-                        register.next_one()
-                    except ValueError as e:
-                        print(_error("no value to save!"))
-                    finally:
-                        continue
-                case _:
-                    print(_error("unknown command!"))
+                try:
+                    ritem = register.read(register.cursor)
+                    if tag and len(tag) > 0:
+                        ritem.tag = tag
+                    print(_result(register.cursor, ritem))
+                    register.next_one()
+                except ValueError as e:
+                    print(_error("no value to save!"))
+                finally:
                     continue
 
         try:
@@ -294,11 +290,11 @@ def show_ref():
 
     _docstring = """
 --- Commands ---
-":exit" exit program.
-":show" show all results in register.
-""reset" clear all results in register.
-":stay" stop the moving of register.
-":go" recover the moving of register.
+"exit" exit program.
+"show" show all results in register.
+"reset" clear all results in register.
+"stay" stop the moving of register.
+"go" recover the moving of register.
 
 --- Functions ---
 sum(1, 2, 2+1)     => 6
