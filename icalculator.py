@@ -6,8 +6,10 @@ from decimal import Decimal
 
 
 try:
-    ### import readline fix input() for macos
+    ### import readline fix input() for mac_os
     import readline
+
+    # import rlcompleter
 except ImportError:
     ### readline is not available in windows
     pass
@@ -89,7 +91,7 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def printable_width(s: str) -> str:
+def printable_width(s: str) -> int:
     ss = re.sub(r".\[\d+m", "", s)
     count = 0
     for c in list(ss):
@@ -127,36 +129,22 @@ def _result(cursor: str, item: RItem) -> str:
     zlen = w_cols - len_res - len_tag
 
     if zlen < SEP:
-        if w_cols < s_tag:
-            s_tag = s_tag[:w_cols-1]+"…"
-        return s_result + "\n" + s_tag[:w_cols]
+        if w_cols < len_tag:
+            s_tag = s_tag[: w_cols - 1] + "…"
+        return (
+            s_result
+            + "\n"
+            + " " * (w_cols - printable_width(s_tag))
+            + s_tag[:w_cols]
+        )
 
-    return s_result + " "*zlen + s_tag
-
-    # return (
-    #     Fore.RED
-    #     + Style.BRIGHT
-    #     + f"@{ cursor }: "
-    #     + Style.RESET_ALL
-    #     + Fore.YELLOW
-    #     + f"{ item.value:<20}"
-    #     + Fore.WHITE
-    #     + '\t "'
-    #     + item.tag
-    #     + '"'
-    #     + Style.RESET_ALL
-    # )
+    return s_result + " " * zlen + s_tag
 
 
 def _result2(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
-    return (
-        Fore.CYAN
-        + f"@{cursor}: "
-        + f"{item.value}"
-        + Style.RESET_ALL
-    )
+    return Fore.CYAN + f"@{cursor}: " + f"{item.value}" + Style.RESET_ALL
 
 
 def _message(message) -> str:
@@ -210,22 +198,50 @@ def icalculate(stay=True):
 
     while True:
         x = str(input(_prompt())).strip().lower()
-        cmds = x.split(" ", maxsplit=1)
-        cmd: str = cmds[0]
-        tag: str = cmds[1] if len(cmds) > 1 else ""
-        result: Number
 
-        match cmd:
-            case "exit":
-                return
-            case "back":
-                register.go_back()
-                continue
-            case "show":
-                show_results()
-                continue
-            case "save":
-                if MODE == Mode.STAY:
+        if x.startswith(":"):
+            cmds = x.split(" ", maxsplit=1)
+            cmd: str = cmds[0]
+            tag: str = cmds[1] if len(cmds) > 1 else ""
+            result: Number
+
+            match cmd:
+                case ":exit":
+                    return
+
+                case ":back":
+                    register.go_back()
+                    continue
+
+                case ":show":
+                    show_results()
+                    continue
+
+                case ":reset":
+                    reset_queue()
+                    continue
+
+                case ":stay":
+                    if MODE == Mode.WALKING:
+                        MODE = Mode.STAY
+                        register.go_back()
+                    continue
+
+                case ":go":
+                    if MODE == Mode.STAY:
+                        MODE = Mode.WALKING
+                        register.next_one()
+                    continue
+
+                case ":ref":
+                    show_ref()
+                    continue
+
+                case ":save":
+                    if MODE != Mode.STAY:
+                        print(_message("'save' does not work in walking mode"))
+                        continue
+
                     try:
                         ritem = register.read(register.cursor)
                         if tag and len(tag) > 0:
@@ -234,31 +250,13 @@ def icalculate(stay=True):
                         register.next_one()
                     except ValueError as e:
                         print(_error("no value to save!"))
-                else:
-                    print(_message("'save' does not work in walking mode"))
-
-                continue
-            case "tag":
-                pass
-            case "reset" | "clear":
-                reset_queue()
-                continue
-            case "stop" | "stay":
-                if MODE == Mode.WALKING:
-                    MODE = Mode.STAY
-                    register.go_back()
-                continue
-            case "go":
-                if MODE == Mode.STAY:
-                    MODE = Mode.WALKING
-                    register.next_one()
-                continue
-            case "ref":
-                show_ref()
-                continue
+                    finally:
+                        continue
+                case _:
+                    print(_error("unknown command!"))
+                    continue
 
         try:
-            # x = replace_symbols(x)
             parser_logger = ParserLogger()
             l_result = calculate_num(
                 input=x,
@@ -296,11 +294,11 @@ def show_ref():
 
     _docstring = """
 --- Commands ---
-"exit" exit program.
-"show" show all results in register.
-"clear" or "reset" clear all results in register.
-"stay" or "stop" stop the moving of register.
-"go" recover the moving of register.
+":exit" exit program.
+":show" show all results in register.
+""reset" clear all results in register.
+":stay" stop the moving of register.
+":go" recover the moving of register.
 
 --- Functions ---
 sum(1, 2, 2+1)     => 6
