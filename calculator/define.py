@@ -1,7 +1,8 @@
+import abc
 from enum import Enum
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Self, Any
+from typing import Callable, Self, Generic, Optional, TypeVar
 
 
 __all__ = [
@@ -27,6 +28,7 @@ class WordType(Enum):
     LEFTPAREN = "'('"
     RIGHTPAREN = "')'"
     REGISTER = "Register"
+    REGISTERLIST = "RegisterList"
 
     # virtual words
     PLACEHOLDER = "P"
@@ -132,8 +134,19 @@ class Number:
             return str(self.value)
 
 
-Register = Callable[[str], Decimal | None]
-"""Type alias: Register"""
+T = TypeVar("T")
+
+
+class Register(abc.ABC, Generic[T]):
+    """abstract class for Register"""
+
+    @abc.abstractmethod
+    def read(self, key: str) -> T:
+        pass
+
+    @abc.abstractmethod
+    def read_list(self, keyrange: tuple[str, str]) -> list[T]:
+        pass
 
 
 FUNC_SET = {"sum", "max", "min", "abs", "round", "hex", "oct"}

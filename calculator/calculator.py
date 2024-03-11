@@ -1,6 +1,7 @@
 import operator
 from copy import deepcopy
 from decimal import Decimal, setcontext, Context
+from dataclasses import dataclass
 
 if not __package__:
     from define import FUNC_SET, Operator, Number, Pt, WordType, Register
@@ -11,7 +12,7 @@ else:
     from .parserlogger import ParserLogger
     from .words import parse
 
-__all__ = ["calculate", "error_message", "Register"]
+__all__ = ["calculate", "error_message", "Register", "RItem"]
 
 
 MIN = Decimal("1e-29")
@@ -32,7 +33,9 @@ OPER_DICT = {
     "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
-    "round": Operator(w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]),
+    "round": Operator(
+        w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]
+    ),
     "hex": Operator(
         w=100,
         operator="hex",
@@ -106,12 +109,18 @@ def valid_parameters(
     return res
 
 
+@dataclass
+class RItem:
+    value: Decimal
+    tag: str = ""
+
+
 class Chain(object):
     def __init__(
         self,
         raw: str,
         *,
-        register: Register | None = None,
+        register: Register[RItem] | None = None,
         logger: ParserLogger,
     ):
 
@@ -185,14 +194,41 @@ class Chain(object):
                         self.logger.add(_error, at=word.offset, forced=True)
                         raise ValueError(_error)
 
-                    res = self._register(word.value_str)
-                    if res is None or not isinstance(res, Decimal):
+                    try:
+                        reg_key = word.value_str.removeprefix("@")
+                        res = self._register.read(reg_key)
+                    except ValueError as e:
+                        _error = f"{e}"
+                        self.logger.add(
+                            _error, at=word.offset, to=word.end, forced=True
+                        )
+                        raise ValueError(_error)
+
+                    num = res.value
+                    self._nums.append(Number(num, [word]))
+
+                case WordType.REGISTERLIST:
+                    if self._register is None:
                         _error = f"unknown register: {word.value_str}"
                         self.logger.add(_error, at=word.offset, forced=True)
                         raise ValueError(_error)
 
-                    num = res
-                    self._nums.append(Number(num, [word]))
+                    list_str = word.value_str.removeprefix("@")
+
+                    try:
+                        l_from, l_to = list_str.split("_")[:2]
+                        res_list = self._register.read_list((l_from, l_to))
+                    except ValueError as e:
+                        _error = f"{e}"
+                        self.logger.add(
+                            _error, at=word.offset, to=word.end, forced=True
+                        )
+                        raise ValueError(_error)
+
+                    for i, res in enumerate(res_list):
+                        self._nums.append(Number(res.value, [word]))
+                        if i < len(res_list) - 1:
+                            self._operators.append(Operator(base, ",", None))
 
                 case _:
                     _error = f"unknown: {word.word_str}"
@@ -324,9 +360,7 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = (
-        "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
-    )
+    raw_string = "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
     print(str(calculate(raw_string)))
     raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
     print(str(calculate(raw_string)))

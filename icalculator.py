@@ -1,12 +1,15 @@
 import sys
+import os
 import re
 from enum import Enum
 from decimal import Decimal
 
 
 try:
-    ### import readline fix input() for macos
+    ### import readline fix input() for mac_os
     import readline
+
+    # import rlcompleter
 except ImportError:
     ### readline is not available in windows
     pass
@@ -14,10 +17,10 @@ except ImportError:
 from colorama import Fore, Back, Style
 
 if not __package__:
-    from calculator import calculate_num, ParserLogger, Number
+    from calculator import calculate_num, ParserLogger, Number, RItem
     from queueregister import QueueRegister
 else:
-    from .calculator import calculate_num, ParserLogger, Number
+    from .calculator import calculate_num, ParserLogger, Number, RItem
     from .queueregister import QueueRegister
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
@@ -42,31 +45,11 @@ VERSION = "0.0.1"
 MODE: Mode = Mode.WALKING
 """register mode"""
 
-register = QueueRegister[Decimal]()
+register = QueueRegister[RItem]()
 """ Register """
 
 parser_logger: ParserLogger
 """ Parser logger"""
-
-
-def replace_symbols(input: str) -> str:
-    """[deprecated] replace symbol in input with register value based on text"""
-
-    new_str = input
-    m = re.findall(r"\@[a-z,_]{1}", new_str)
-    for item in set(m):
-        symbol = item[1]
-
-        if symbol not in register and symbol != register.PREVIOUS_SYMBOL:
-            raise ValueError(f"register { item } does not exists")
-
-        value = str(register[symbol])
-        new_str = new_str.replace(item, f" {value} ")
-
-    if DEBUG:
-        print(f"match:{ m }, replace:{ new_str }")
-
-    return new_str
 
 
 def _header() -> str:
@@ -108,18 +91,60 @@ def _error(error, message: str | None = None) -> str:
     return res
 
 
-def _result(cursor: str, result: Number | Decimal) -> str:
+def printable_width(s: str) -> int:
+    ss = re.sub(r".\[\d+m", "", s)
+    count = 0
+    for c in list(ss):
+        if not c.isprintable():
+            continue
+        if c.isascii():
+            count += 1
+        else:
+            count += 2
+    return count
+
+
+def _result(cursor: str, item: RItem) -> str:
     """terminal: result output"""
 
-    return (
+    size = os.get_terminal_size()
+    w_cols = min(size.columns, 60)
+
+    SEP = 5
+
+    s_result = (
         Fore.RED
         + Style.BRIGHT
-        + f"@{ cursor }: "
+        + f"@{cursor}: "
         + Style.RESET_ALL
         + Fore.YELLOW
-        + f"{ result }"
+        + f"{item.value}"
         + Style.RESET_ALL
     )
+    len_res = printable_width(s_result)
+
+    s_tag = Fore.WHITE + f'"{item.tag}"' + Style.RESET_ALL
+    len_tag = printable_width(s_tag)
+
+    zlen = w_cols - len_res - len_tag
+
+    if zlen < SEP:
+        if w_cols < len_tag:
+            s_tag = s_tag[: w_cols - 1] + "…"
+        return (
+            s_result
+            + "\n"
+            + " " * (w_cols - printable_width(s_tag))
+            + s_tag[:w_cols]
+        )
+
+    return s_result + " " * zlen + s_tag
+
+
+def _result2(cursor: str, item: RItem) -> str:
+    """terminal: result output"""
+
+    return Fore.CYAN + f"@{cursor}: " + f"{item.value}" + Style.RESET_ALL
 
 
 def _message(message) -> str:
@@ -161,7 +186,7 @@ def _prompt() -> str:
         return Fore.BLUE + "=== "
 
 
-def icalculate():
+def icalculate(stay=True):
     """iteractive processor"""
 
     global MODE, parser_logger
@@ -169,56 +194,91 @@ def icalculate():
     print(_header())
     sys.stdout.flush()
 
+    MODE = Mode.STAY if stay else Mode.WALKING
+
     while True:
         x = str(input(_prompt())).strip().lower()
-        match x:
+
+        cmds = x.split(" ", maxsplit=1)
+        cmd: str = cmds[0]
+        tag: str = cmds[1] if len(cmds) > 1 else ""
+        result: Number
+
+        match cmd:
             case "exit":
                 return
+
             case "back":
                 register.go_back()
                 continue
+
             case "show":
                 show_results()
                 continue
-            case "tag":
-                pass
-            case "reset" | "clear":
+
+            case "reset":
                 reset_queue()
                 continue
-            case "stop" | "stay":
+
+            case "stay":
                 if MODE == Mode.WALKING:
                     MODE = Mode.STAY
                     register.go_back()
                 continue
+
             case "go":
                 if MODE == Mode.STAY:
                     MODE = Mode.WALKING
                     register.next_one()
                 continue
+
             case "ref":
                 show_ref()
                 continue
 
+            case "save":
+                if MODE != Mode.STAY:
+                    print(_message("'save' does not work in walking mode"))
+                    continue
+
+                try:
+                    ritem = register.read(register.cursor)
+                    if tag and len(tag) > 0:
+                        ritem.tag = tag
+                    print(_result(register.cursor, ritem))
+                    register.next_one()
+                except ValueError as e:
+                    print(_error("no value to save!"))
+                finally:
+                    continue
+
         try:
-            # x = replace_symbols(x)
             parser_logger = ParserLogger()
-            result = calculate_num(
+            l_result = calculate_num(
                 input=x,
-                register=lambda x: register[x.removeprefix("@")],
+                register=register,  ###lambda x: register[x.removeprefix("@")],
                 logger=parser_logger,
             )
 
-            if result is None:
+            if l_result is None:
                 raise ValueError("not valid")
+
+            result = l_result
 
         except ValueError as e:
             print(_error(e, parser_logger.message(x)), file=sys.stderr)
             sys.stderr.flush()
             continue
 
-        register.write(result.value)
+        tag = x
+        ritem = RItem(result.value, tag=tag)
+        register.write(ritem)
 
-        print(_result(register.cursor, result))
+        if MODE == Mode.STAY:
+            print(_result2(register.cursor, ritem))
+        else:
+            print(_result(register.cursor, ritem))
+
         sys.stdout.flush()
 
         if MODE == MODE.WALKING:
@@ -232,8 +292,8 @@ def show_ref():
 --- Commands ---
 "exit" exit program.
 "show" show all results in register.
-"clear" or "reset" clear all results in register.
-"stay" or "stop" stop the moving of register.
+"reset" clear all results in register.
+"stay" stop the moving of register.
 "go" recover the moving of register.
 
 --- Functions ---
@@ -250,7 +310,7 @@ def reset_queue():
     """reset register to initial status"""
 
     global register
-    register = QueueRegister[Decimal]()
+    register = QueueRegister[RItem]()
     print(_message('the results are cleared, starting from "a"'))
 
 
@@ -259,10 +319,14 @@ def show_results():
 
     count = 0
 
-    for key, value in reversed(register.items()):
-        if key == register.cursor:  # and MODE == Mode.WALKING:
+    for key, item in reversed(register.items()):
+        if key == register.cursor:
+            if MODE == Mode.STAY:
+                print(_result2(key, item))
+                count += 1
             continue
-        print(_result(key, value))
+
+        print(_result(key, item))
         count += 1
 
     if count <= 0:
