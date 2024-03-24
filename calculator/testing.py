@@ -1,4 +1,5 @@
 import unittest
+import decimal
 
 if not __package__:
     from words import number, parse
@@ -220,10 +221,38 @@ class Testing(unittest.TestCase):
             msg="should be Equal",
         )
         self.assertEqual(
-            calculate(" 2*25^(1/2)/2"),
-            5,
+            _calculate(" 2*25^(1/2)/2"),
+            "5",
             msg="should be Equal",
         )
+        self.assertEqual(
+            _calculate("abs(-1.1)"),
+            "1.1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("round(1.12, 1)"),
+            "1.1",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("round(1.15, 1)"),
+            "1.2",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("round(1.16, 1)"),
+            "1.2",
+            msg="should be Equal",
+        )
+        with self.assertRaises(ValueError):
+            calculate(" 2/0")
+
+        with self.assertRaises(ValueError):
+            calculate("abs(1,1)")
+
+        with self.assertRaises(ValueError):
+            calculate("round(11,1.1)")
 
 
 if __name__ == "__main__":

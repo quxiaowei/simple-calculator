@@ -346,7 +346,6 @@ def _notation(
     drop=False,
     forced=False,
 ) -> ExprFunc:
-
     def _inner(s: str) -> tuple[WordList, str]:
         global parser_offset, word_list
 

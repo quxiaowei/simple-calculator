@@ -1,6 +1,15 @@
 import operator
 from copy import deepcopy
-from decimal import Decimal, setcontext, Context
+import decimal
+from decimal import (
+    ROUND_05UP,
+    ROUND_HALF_UP,
+    Decimal,
+    Context,
+    getcontext,
+    setcontext,
+    localcontext,
+)
 from dataclasses import dataclass
 
 if not __package__:
@@ -17,14 +26,24 @@ __all__ = ["calculate", "error_message", "Register", "RItem"]
 
 MIN = Decimal("1e-29")
 
+ROUND_PLACE: int = 10
+
 DEBUG_FLAG = False
+
+
+def _round(n1: Decimal, n2: Decimal):
+    with localcontext(rounding=ROUND_HALF_UP):
+        _res = round(n1, n2)  # type: ignore
+    getcontext().flags[decimal.Inexact] = False
+    return _res
+
 
 OPER_DICT = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
     "*": Operator(20, "*", operator.mul),
-    "/": Operator(20, "/", operator.truediv),
-    "^": Operator(30, "^", operator.pow),
+    "/": Operator(20, "/", getcontext().divide),  # operator.truediv),
+    "^": Operator(30, "^", getcontext().power),  # operator.pow),
     "(": Operator(100, "(", lambda _, b: b),
     ")": Operator(-100, ")", lambda a, _: a),
     ",": Operator(0, ",", None),
@@ -34,7 +53,7 @@ OPER_DICT = {
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
     "round": Operator(
-        w=100, operator="round", func=round, sig=[Pt.Num, Pt.Int]
+        w=100, operator="round", func=_round, sig=[Pt.Num, Pt.Int]
     ),
     "hex": Operator(
         w=100,
@@ -57,7 +76,16 @@ ABYSS = Operator(-10000, "", None)
 
 parser_logger: ParserLogger
 
-setcontext(Context(prec=30))
+resultcontext = Context(rounding=ROUND_HALF_UP)
+
+setcontext(
+    Context(
+        prec=30,
+        rounding=ROUND_05UP,
+        flags=[decimal.Inexact, decimal.Rounded],
+        traps=[decimal.DivisionByZero],
+    )
+)
 
 
 def valid_parameters(
@@ -292,8 +320,8 @@ class Chain(object):
             res: Decimal = op.func(*l_values)
             res_str: str = op.ffunc(*l_values) if op.ffunc else ""
 
-            if abs(res) <= MIN:
-                res = Decimal(0)
+            # if abs(res) <= MIN:
+            #    res = Decimal(0)
 
             # store the result
             self._nums[n] = Number(res, l_words, res_str)
@@ -306,12 +334,22 @@ class Chain(object):
 
             l_left: Number = self._nums[n]
             l_right: Number = self._nums[n + 1]
-            res = op.func(l_left.value, l_right.value)
+            try:
+                res = op.func(l_left.value, l_right.value)
+            except decimal.DivisionByZero:
+                _error = "cannot divide by Zero"
+                self.logger.add(
+                    _error,
+                    at=l_right.words[0].offset,
+                    to=l_right.words[-1].end,
+                    forced=True,
+                )
+                raise ValueError(_error)
 
             l_words = l_left.words + op.words + l_right.words
 
-            if abs(res) <= MIN:
-                res = Decimal(0)
+            # if abs(res) <= MIN:
+            #     res = Decimal(0)
 
             self._nums[n] = Number(res, l_words)
 
@@ -330,6 +368,8 @@ def calculate_num(
 
     global parser_logger
 
+    getcontext().clear_flags()
+
     parser_logger = logger if logger is not None else ParserLogger()
 
     chain = Chain(input, register=register, logger=parser_logger)
@@ -340,7 +380,17 @@ def calculate_num(
         i = max(range(len(chain)), key=lambda a: chain[a].w)
         chain.reduce_chain(i)
 
-    return chain.result()[0]
+    _result = chain.result()[0]
+
+    _context = getcontext()
+    if _context.flags[decimal.Inexact]:
+        _result.value = _result.value.quantize(
+            Decimal("1.0000000000"), rounding=ROUND_HALF_UP
+        )
+    else:
+        _result.value = 0 + _result.value.normalize()
+
+    return _result
 
 
 def calculate(
@@ -360,7 +410,9 @@ def error_message(raw_input: str):
 if __name__ == "__main__":
     DEBUG_FLAG = True
 
-    raw_string = "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 )"
-    print(str(calculate(raw_string)))
-    raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
-    print(str(calculate(raw_string)))
+    # raw_string = "112.01-2.5 +(-2.56 * (31 +1.1) ) * 2.2 + 23.3 * 3.1 + ( 1.1 + 22 * 8 ) +0.0000000010001"
+    # print(str(calculate(raw_string)))
+    print(str(calculate("8/16")))
+
+    # raw_string = " 2 + ( 2 * sum (1, max(2, 3), 4, 5 )) - 1"
+    # print(str(calculate(raw_string)))

@@ -2,8 +2,6 @@ import sys
 import os
 import re
 from enum import Enum
-from decimal import Decimal
-
 
 try:
     ### import readline fix input() for mac_os
@@ -14,7 +12,7 @@ except ImportError:
     ### readline is not available in windows
     pass
 
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 
 if not __package__:
     from calculator import calculate_num, ParserLogger, Number, RItem

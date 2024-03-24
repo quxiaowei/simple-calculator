@@ -2,7 +2,7 @@ import abc
 from enum import Enum
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Self, Generic, Optional, TypeVar
+from typing import Callable, Self, Generic, TypeVar
 
 
 __all__ = [
