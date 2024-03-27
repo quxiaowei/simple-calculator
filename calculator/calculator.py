@@ -139,7 +139,7 @@ def valid_parameters(
 
 @dataclass
 class RItem:
-    value: Decimal
+    value: Number
     tag: str = ""
 
 
@@ -233,7 +233,7 @@ class Chain(object):
                         raise ValueError(_error)
 
                     num = res.value
-                    self._nums.append(Number(num, [word]))
+                    self._nums.append(Number(num.value, [word]))
 
                 case WordType.REGISTERLIST:
                     if self._register is None:
@@ -254,7 +254,7 @@ class Chain(object):
                         raise ValueError(_error)
 
                     for i, res in enumerate(res_list):
-                        self._nums.append(Number(res.value, [word]))
+                        self._nums.append(Number(res.value.value, [word]))
                         if i < len(res_list) - 1:
                             self._operators.append(Operator(base, ",", None))
 

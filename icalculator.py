@@ -59,6 +59,7 @@ def _header() -> str:
         + f"> Input content to calculate.\n"
         + f'> Type "exit" to exit.\n'
         + f'> Type "ref" for reference.\n'
+        + f'> Type "save [tag]" to save result\n'
         + f"> Every result is stored in register from { Fore.BLUE }[a-z]{ Style.RESET_ALL } cyclically.\n"
         + f'> "@a" gives the value in "a".\n'
         + f'> "@@" gives the previous result.'
@@ -269,7 +270,7 @@ def icalculate(stay=True):
             continue
 
         tag = x
-        ritem = RItem(result.value, tag=tag)
+        ritem = RItem(result, tag=tag)
         register.write(ritem)
 
         if MODE == Mode.STAY:
@@ -287,18 +288,26 @@ def show_ref():
     """print calculator reference"""
 
     _docstring = """
+--- Modes ---
+STAY mode (prompt:"===") (Default)
+save result by call "save" command
+WALKING mode (prompt:">>>")
+automatically save results and move to next register
 --- Commands ---
 "exit" exit program.
 "show" show all results in register.
 "reset" clear all results in register.
-"stay" stop the moving of register.
-"go" recover the moving of register.
-
+"stay" switch to STAY mode.
+"go" save result & switch to WALKING mode.
+"save [tag]" save result (in STAY Mode).
 --- Functions ---
 sum(1, 2, 2+1)     => 6
 max(1, sum(2, 1))  => 3
 min(1, 2)          => 1
 abs(1-12)          => 11 
+round(12.16, 1)    => 12.2
+hex(10)            => 0xa
+oct(10)            => 0o12
 """
     print(_message(_docstring))
     pass
