@@ -54,18 +54,7 @@ Every result is stored in register from \[a-z\] cyclically, that is when reachin
 
 for example:
 
-```
->>> 1
->>> @a: 1
->>> @a + 2
->>> @b: 3
->>> ...
->>> @z: 351
->>> @z + 1
->>> @a: 352
->>> @@- 1
->>> @b: 351
-```
+![image](/ext/exp.png)
 
 ### Support HEX, OCT, Scientific input
 
@@ -77,27 +66,11 @@ for example:
 
 ### Error message with highlight
 
-```
-
->>> abs(sum(1,2,3),11)
->>> Input: abs(sum(1,2,3),11)
-           ---------------^^-----
-    Error: func abs: expecting 1 parameters got 2
->>>
-```
-
-```
->>> sum(1,
->>> Input: sum(1,
-           ------^---
-    Error: expecting Number
->>>
-```
+![image](./ext/error_message.png)
 
 ### reference for interactive mode
 
 ```
-
 --- Modes ---
 STAY mode (prompt:"===") (Default)
 save result by call "save" command
@@ -118,7 +91,6 @@ abs(1-12) => 11
 round(12.16, 1) => 12.2
 hex(10) => 0xa
 oct(10) => 0o12
-
 ```
 
 ### Require colorama [https://pypi.org/project/colorama/]
