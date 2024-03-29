@@ -53,7 +53,10 @@ OPER_DICT = {
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
     "log": Operator(
-        w=100, operator="log", func=lambda x: getcontext().log10(x), sig=[Pt.Num]
+        w=100,
+        operator="log",
+        func=lambda x: getcontext().log10(x),
+        sig=[Pt.Num],
     ),
     "ln": Operator(
         w=100, operator="ln", func=lambda x: getcontext().ln(x), sig=[Pt.Num]
@@ -62,9 +65,14 @@ OPER_DICT = {
         w=100, operator="exp", func=lambda x: getcontext().exp(x), sig=[Pt.Num]
     ),
     "sqrt": Operator(
-        w=100, operator="sqrt", func=lambda x: getcontext().sqrt(x), sig=[Pt.Num]
+        w=100,
+        operator="sqrt",
+        func=lambda x: getcontext().sqrt(x),
+        sig=[Pt.Num],
     ),
-    "round": Operator(w=100, operator="round", func=_round, sig=[Pt.Num, Pt.Int]),
+    "round": Operator(
+        w=100, operator="round", func=_round, sig=[Pt.Num, Pt.Int]
+    ),
     "hex": Operator(
         w=100,
         operator="hex",
@@ -392,6 +400,23 @@ def calculate_num(
         _result.value = 0 + _result.value.normalize()
 
     return _result
+
+
+def check_calc(input: str) -> bool:
+    setcontext(
+        Context(
+            prec=30,
+            rounding=ROUND_05UP,
+            flags=[decimal.Inexact, decimal.Rounded],
+            traps=[decimal.DivisionByZero],
+        )
+    )
+    try:
+        _ = calculate_num(input)
+    except:
+        return False
+    else:
+        return True
 
 
 def calculate(

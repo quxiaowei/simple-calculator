@@ -1,19 +1,19 @@
 # DailyCalc - A Simple Calculator
 
-**python\>=3.11** 
+**python\>=3.11**
 
-**dependency** : **[colorama](https://pypi.org/project/colorama/)** 
-(**not mandatory**, if you don't need highlight, you can uninstall it later) 
+**dependency** : **[colorama](https://pypi.org/project/colorama/)**
+(**not mandatory**, if you don't need highlight, you can uninstall it later)
 
 ## Description
 
-Based on decimal.Decimal.
+A simple calculator based on decimal.Decimal.
 
 > Decimal “is based on a floating-point model which was designed with people in mind, and necessarily has a paramount guiding principle – computers must provide an arithmetic that works in the same way as the arithmetic that people learn at school.” – excerpt from the decimal arithmetic specification
 
 Output is rounded with maximum 10 decimal place for Infinitesimal decimals.
 
-``` bash
+```bash
 sqrt(2)     => 1.4142135624   # keep 10 decimal places
 0.1 + 0.2   => 0.3
 ln(exp(10)) => 10.0000000000  # inevitable loss of precision
@@ -30,9 +30,17 @@ pip install dailycalc
 import into your code
 
 ```python
-from dailycalc import calculate
+from dailycalc import calculate, check_calc
 
-print(calculate("sum(123, 3)"))
+if check_calc("sum(123, 3)"):
+    print(calculate("sum(123, 3)"))
+
+# or
+
+try:
+    print(calculate("sum(123, 3)"))
+except ValueError as e:
+    print(e)
 ```
 
 once-off calculate
@@ -81,10 +89,9 @@ for example:
 
 ```
 --- Modes ---
-STAY mode (prompt:"===") (Default)
-save result by call "save" command
-WALKING mode (prompt:">>>")
-automatically save results and move to next register
+STAY mode (prompt "===") (Default) save result by call "save" command
+WALKING mode (prompt ">>>") automatically save results and move to next register
+
 --- Commands ---
 "exit" exit program.
 "show" show all results in register.
@@ -92,17 +99,19 @@ automatically save results and move to next register
 "stay" switch to STAY mode.
 "go" save result & switch to WALKING mode.
 "save [tag]" save result (in STAY Mode).
---- Functions ---
-sum(1, 2, 2+1) => 6
-max(1, sum(2, 1)) => 3
-min(1, 2) => 1
-abs(1-12) => 11
-round(12.16, 1) => 12.2
-hex(10) => 0xa
-oct(10) => 0o12
-```
 
-### Require colorama [https://pypi.org/project/colorama/]
+--- Functions ---
+sum(1, 2, 2+1)     => 6
+max(1, sum(2, 1))  => 3
+min(1, 2)          => 1
+abs(1-12)          => 11
+round(12.16, 1)    => 12.2
+hex(10)            => 0xa
+oct(10)            => 0o12
+sqrt(1.44)         => 1.2
+ln(exp(100))       => 10.0000000000
+log(100)           => 2
+```
 
 ## Future Plans
 
