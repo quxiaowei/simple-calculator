@@ -2,6 +2,7 @@ import sys
 import os
 import re
 from enum import Enum
+from unicodedata import east_asian_width
 
 try:
     ### import readline fix input() for mac_os
@@ -12,14 +13,21 @@ except ImportError:
     ### readline is not available in windows
     pass
 
-from colorama import Fore, Style
-
 if not __package__:
     from calculator import calculate_num, ParserLogger, Number, RItem
     from queueregister import QueueRegister
+    from calculator import Anything
 else:
     from .calculator import calculate_num, ParserLogger, Number, RItem
     from .queueregister import QueueRegister
+    from .calculator import Anything
+
+try:
+    from colorama import Fore, Style
+except ImportError:
+    Fore = Anything()
+    Style = Anything()
+
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
 
@@ -96,10 +104,10 @@ def printable_width(s: str) -> int:
     for c in list(ss):
         if not c.isprintable():
             continue
-        if c.isascii():
-            count += 1
-        else:
+        if east_asian_width(c) in ("F", "W"):
             count += 2
+        else:
+            count += 1
     return count
 
 
@@ -108,8 +116,6 @@ def _result(cursor: str, item: RItem) -> str:
 
     size = os.get_terminal_size()
     w_cols = min(size.columns, 60)
-
-    SEP = 5
 
     s_result = (
         Fore.RED
@@ -122,22 +128,43 @@ def _result(cursor: str, item: RItem) -> str:
     )
     len_res = printable_width(s_result)
 
-    s_tag = Fore.WHITE + f'"{item.tag}"' + Style.RESET_ALL
+    s_source = f"   = {item.value.source_str}"
+
+    s_tag = "" if len(item.tag) == 0 else f'"{item.tag}'
     len_tag = printable_width(s_tag)
 
-    zlen = w_cols - len_res - len_tag
+    _res = ""
 
-    if zlen < SEP:
-        if w_cols < len_tag:
-            s_tag = s_tag[: w_cols - 1] + "…"
-        return (
-            s_result
-            + "\n"
-            + " " * (w_cols - printable_width(s_tag))
-            + s_tag[:w_cols]
-        )
+    def join_lm(s: str, a: str, w: int) -> str:
+        if printable_width(s) + 5 > w:
+            return s
 
-    return s_result + " " * zlen + s_tag
+        if printable_width(s) + 1 + printable_width(a) > w:
+            diff = w - (printable_width(s) + 1 + printable_width(a))
+            return s + " " + a[: diff - 1] + "…"
+
+        return s + " " + a
+
+    def join_rm(s: str, a: str, w: int) -> str:
+        if printable_width(s) + 5 > w:
+            return s
+
+        if printable_width(s) + 1 + printable_width(a) > w:
+            diff = w - (printable_width(s) + 1 + printable_width(a))
+            return s + " " + a[: diff - 1] + "…"
+
+        diff = w - printable_width(s) - printable_width(a)
+        return s + " " * diff + a
+
+    if len_tag == 0:
+        _res = join_lm(s_result + Fore.BLUE, s_source, w_cols)
+    elif len_tag + len_res > w_cols:
+        _res = join_rm(s_result + Fore.CYAN, s_tag, w_cols)
+    else:
+        _res = join_lm(s_result + Fore.BLUE, s_source, w_cols - len_tag - 1)
+        _res = join_rm(_res + Fore.CYAN, s_tag, w_cols)
+
+    return _res + Style.RESET_ALL
 
 
 def _result2(cursor: str, item: RItem) -> str:
@@ -269,8 +296,7 @@ def icalculate(stay=True):
             sys.stderr.flush()
             continue
 
-        tag = x
-        ritem = RItem(result, tag=tag)
+        ritem = RItem(result)
         register.write(ritem)
 
         if MODE == Mode.STAY:
@@ -289,10 +315,9 @@ def show_ref():
 
     _docstring = """
 --- Modes ---
-STAY mode (prompt:"===") (Default)
-save result by call "save" command
-WALKING mode (prompt:">>>")
-automatically save results and move to next register
+STAY mode (prompt "===") (Default) save result by call "save" command
+WALKING mode (prompt ">>>") automatically save results and move to next register
+
 --- Commands ---
 "exit" exit program.
 "show" show all results in register.
@@ -300,6 +325,7 @@ automatically save results and move to next register
 "stay" switch to STAY mode.
 "go" save result & switch to WALKING mode.
 "save [tag]" save result (in STAY Mode).
+
 --- Functions ---
 sum(1, 2, 2+1)     => 6
 max(1, sum(2, 1))  => 3
@@ -308,6 +334,9 @@ abs(1-12)          => 11
 round(12.16, 1)    => 12.2
 hex(10)            => 0xa
 oct(10)            => 0o12
+sqrt(1.44)         => 1.2
+ln(exp(100))       => 10.0000000000
+log(100)           => 2   
 """
     print(_message(_docstring))
     pass

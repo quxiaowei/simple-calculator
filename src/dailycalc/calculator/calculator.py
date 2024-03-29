@@ -41,7 +41,7 @@ def _round(n1: Decimal, n2: Decimal):
 OPER_DICT = {
     "+": Operator(10, "+", operator.add),
     "-": Operator(10, "-", operator.sub),
-    "*": Operator(20, "*", operator.mul),
+    "*": Operator(20, "*", getcontext().multiply),
     "/": Operator(20, "/", getcontext().divide),  # operator.truediv),
     "^": Operator(30, "^", getcontext().power),  # operator.pow),
     "(": Operator(100, "(", lambda _, b: b),
@@ -52,6 +52,24 @@ OPER_DICT = {
     "max": Operator(w=100, operator="max", func=lambda *args: max(list(args))),
     "min": Operator(w=100, operator="min", func=lambda *args: min(list(args))),
     "abs": Operator(w=100, operator="abs", func=abs, sig=[Pt.Num]),
+    "log": Operator(
+        w=100,
+        operator="log",
+        func=lambda x: getcontext().log10(x),
+        sig=[Pt.Num],
+    ),
+    "ln": Operator(
+        w=100, operator="ln", func=lambda x: getcontext().ln(x), sig=[Pt.Num]
+    ),
+    "exp": Operator(
+        w=100, operator="exp", func=lambda x: getcontext().exp(x), sig=[Pt.Num]
+    ),
+    "sqrt": Operator(
+        w=100,
+        operator="sqrt",
+        func=lambda x: getcontext().sqrt(x),
+        sig=[Pt.Num],
+    ),
     "round": Operator(
         w=100, operator="round", func=_round, sig=[Pt.Num, Pt.Int]
     ),
@@ -77,15 +95,6 @@ ABYSS = Operator(-10000, "", None)
 parser_logger: ParserLogger
 
 resultcontext = Context(rounding=ROUND_HALF_UP)
-
-setcontext(
-    Context(
-        prec=30,
-        rounding=ROUND_05UP,
-        flags=[decimal.Inexact, decimal.Rounded],
-        traps=[decimal.DivisionByZero],
-    )
-)
 
 
 def valid_parameters(
@@ -393,12 +402,39 @@ def calculate_num(
     return _result
 
 
+def check_calc(input: str) -> bool:
+    setcontext(
+        Context(
+            prec=30,
+            rounding=ROUND_05UP,
+            flags=[decimal.Inexact, decimal.Rounded],
+            traps=[decimal.DivisionByZero],
+        )
+    )
+    try:
+        _ = calculate_num(input)
+    except:
+        return False
+    else:
+        return True
+
+
 def calculate(
     input: str,
     *,
     logger: ParserLogger | None = None,
     register: Register | None = None,
 ) -> Decimal | None:
+
+    setcontext(
+        Context(
+            prec=30,
+            rounding=ROUND_05UP,
+            flags=[decimal.Inexact, decimal.Rounded],
+            traps=[decimal.DivisionByZero],
+        )
+    )
+
     res = calculate_num(input, logger=logger, register=register)
     return res if res is None else res.value
 

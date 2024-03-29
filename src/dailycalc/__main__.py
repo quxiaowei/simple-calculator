@@ -2,14 +2,13 @@
 import sys
 import argparse
 
-from colorama import Fore, Back, Style
-
 if not __package__:
     from calculator import calculate, error_message
     from icalculator import icalculate, VERSION, _red, _green, _blue
 else:
     from .calculator import calculate, error_message
     from .icalculator import icalculate, VERSION, _red, _green, _blue
+
 
 parser = argparse.ArgumentParser(
     prog="dailycalc",
