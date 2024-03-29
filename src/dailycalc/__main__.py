@@ -12,7 +12,7 @@ else:
     from .icalculator import icalculate, VERSION, _red, _green, _blue
 
 parser = argparse.ArgumentParser(
-    prog="qcalc",
+    prog="dailycalc",
     description="A simple calculator",
 )
 parser.add_argument(

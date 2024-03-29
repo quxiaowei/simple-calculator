@@ -4,19 +4,49 @@ Based on decimal.Decimal.
 
 > Decimal “is based on a floating-point model which was designed with people in mind, and necessarily has a paramount guiding principle – computers must provide an arithmetic that works in the same way as the arithmetic that people learn at school.” – excerpt from the decimal arithmetic specification
 
-### Require colorama [https://pypi.org/project/colorama/]
+### How to use
 
-### words.py
+install
 
-validate and parse expression string
+```
+pip install dailycalc
+```
 
-### calculate.py
+import into your code
 
-calculate
+```python
+from dailycalc import calculate
 
-## 20240211
+print(calculate("sum(123+3)"))
+```
 
-### Add interactive mode in icalculate.py
+once-off calculate
+
+```bash
+python -m dailycalc "sum(0.1, 0.2)"
+```
+
+iteractive mode
+
+```bash
+python -m dailycalc -i
+```
+
+or
+
+```bash
+idailycalc
+```
+
+### Operators & Functions
+
+currently supporting:
+
+"+ - \* / ^"
+
+"sum max min abs round hex oct"
+
+### Interactive mode
 
 Every result is stored in register from \[a-z\] cyclically, that is when reaching the last one "z", the register would go back to "a" and cover the old value.
 
@@ -26,15 +56,15 @@ for example:
 
 ```
 >>> 1
-@a: 1
+>>> @a: 1
 >>> @a + 2
-@b: 3
-...
-@z: 351
+>>> @b: 3
+>>> ...
+>>> @z: 351
 >>> @z + 1
-@a: 352
+>>> @a: 352
 >>> @@- 1
-@b: 351
+>>> @b: 351
 ```
 
 ### Support HEX, OCT, Scientific input
@@ -43,29 +73,31 @@ for example:
 2. OCT: "0o123", "0O123" only support integar
 3. Scientific: "-123.12E-123" or "-123.12e+123"
 
-### Add terminal highlight in -i
+### Support terminal highlight in -i
 
-### Add better error message
+### Error message with highlight
 
 ```
+
 >>> abs(sum(1,2,3),11)
-  Input: abs(sum(1,2,3),11)
-         ---------------^^-----
-  Error: func abs: expecting 1 parameters got 2
+>>> Input: abs(sum(1,2,3),11)
+           ---------------^^-----
+    Error: func abs: expecting 1 parameters got 2
 >>>
 ```
 
 ```
 >>> sum(1,
-  Input: sum(1,
-         ------^---
-  Error: expecting Number
+>>> Input: sum(1,
+           ------^---
+    Error: expecting Number
 >>>
 ```
 
 ### reference for interactive mode
 
 ```
+
 --- Modes ---
 STAY mode (prompt:"===") (Default)
 save result by call "save" command
@@ -86,28 +118,11 @@ abs(1-12) => 11
 round(12.16, 1) => 12.2
 hex(10) => 0xa
 oct(10) => 0o12
-```
-
-### How to use
-
-linux/mac:
 
 ```
-python python -m zipapp -p "/usr/bin/env python"  simple_calculator
-```
 
-link to pyz file to a new file
-
-```
-ln -s simple_calculator.pyz qcalc
-```
-
-call it
-
-```
-./qcalc -i
-```
+### Require colorama [https://pypi.org/project/colorama/]
 
 ## Future Plans
 
-bugix & Maybe add a file to store history
+add more function & operator, bugfix.

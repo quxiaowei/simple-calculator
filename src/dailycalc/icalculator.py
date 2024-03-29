@@ -54,7 +54,7 @@ def _header() -> str:
     """terminal: header output"""
 
     return (
-        f"{ Fore.BLUE }QCalc { VERSION }  "
+        f"{ Fore.BLUE }dailycalc { VERSION }  "
         + f"[ a calculator in interactive mode ]. { Style.RESET_ALL }\n"
         + f"> Input content to calculate.\n"
         + f'> Type "exit" to exit.\n'
