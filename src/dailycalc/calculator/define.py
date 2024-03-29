@@ -122,6 +122,10 @@ class Number:
     @property
     def isplaceholder(self) -> bool:
         return self.is_placeholder
+    
+    @property
+    def source_str(self) -> str:
+        return "".join([w.word_str for w in self.words])
 
     def __str__(self) -> str:
         if (
