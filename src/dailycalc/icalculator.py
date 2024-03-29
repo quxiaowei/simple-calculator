@@ -13,14 +13,21 @@ except ImportError:
     ### readline is not available in windows
     pass
 
-from colorama import Fore, Style
-
 if not __package__:
     from calculator import calculate_num, ParserLogger, Number, RItem
     from queueregister import QueueRegister
+    from calculator import Anything
 else:
     from .calculator import calculate_num, ParserLogger, Number, RItem
     from .queueregister import QueueRegister
+    from .calculator import Anything
+
+try:
+    from colorama import Fore, Style
+except ImportError:
+    Fore = Anything()
+    Style = Anything()
+
 
 __all__ = ["icalculate", "_red", "_blue", "_green"]
 
@@ -308,10 +315,9 @@ def show_ref():
 
     _docstring = """
 --- Modes ---
-STAY mode (prompt:"===") (Default)
-save result by call "save" command
-WALKING mode (prompt:">>>")
-automatically save results and move to next register
+STAY mode (prompt "===") (Default) save result by call "save" command
+WALKING mode (prompt ">>>") automatically save results and move to next register
+
 --- Commands ---
 "exit" exit program.
 "show" show all results in register.
@@ -319,6 +325,7 @@ automatically save results and move to next register
 "stay" switch to STAY mode.
 "go" save result & switch to WALKING mode.
 "save [tag]" save result (in STAY Mode).
+
 --- Functions ---
 sum(1, 2, 2+1)     => 6
 max(1, sum(2, 1))  => 3
@@ -327,6 +334,9 @@ abs(1-12)          => 11
 round(12.16, 1)    => 12.2
 hex(10)            => 0xa
 oct(10)            => 0o12
+sqrt(1.44)         => 1.2
+ln(exp(100))       => 10.0000000000
+log(100)           => 2   
 """
     print(_message(_docstring))
     pass

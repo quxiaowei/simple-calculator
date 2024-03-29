@@ -245,6 +245,31 @@ class Testing(unittest.TestCase):
             "1.2",
             msg="should be Equal",
         )
+        self.assertEqual(
+            _calculate("log(100)"),
+            "2",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("round(exp(ln(50)), 0)"),
+            "50",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("round(ln(exp(50)), 0)"),
+            "50",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("sqrt(1.44)"),
+            "1.2",
+            msg="should be Equal",
+        )
+        self.assertEqual(
+            _calculate("sqrt(2)"),
+            "1.4142135624",
+            msg="should be Equal",
+        )
         with self.assertRaises(ValueError):
             calculate(" 2/0")
 

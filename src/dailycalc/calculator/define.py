@@ -14,7 +14,12 @@ __all__ = [
     "Number",
     "Operator",
     "Register",
+    "Anything"
 ]
+
+class Anything:
+    def __getattr__(self, name) -> str:
+        return "" 
 
 
 class WordType(Enum):
@@ -153,7 +158,7 @@ class Register(abc.ABC, Generic[T]):
         pass
 
 
-FUNC_SET = {"sum", "max", "min", "abs", "round", "hex", "oct"}
+FUNC_SET = {"sum", "max", "min", "abs", "round", "hex", "oct", "log", "ln", "exp", "sqrt"}
 
 
 OPERATOR_SET = {"-", "+", "*", "/", "^"}

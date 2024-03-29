@@ -6,9 +6,10 @@ __all__ = [
     "Register",
     "RItem",
     "Number",
+    "Anything"
 ]
 
-from .define import Number
+from .define import Number, Anything
 
 from .calculator import calculate, calculate_num, error_message, Register, RItem
 
