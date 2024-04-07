@@ -1,5 +1,7 @@
 # DailyCalc - A Simple Calculator
 
+![PyPI - Version](https://img.shields.io/pypi/v/dailycalc)
+
 **python\>=3.11**
 
 **dependency** : **[colorama](https://pypi.org/project/colorama/)**
