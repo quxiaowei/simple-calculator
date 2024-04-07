@@ -25,6 +25,8 @@ install by pip
 
 ```bash
 pip install dailycalc
+# or
+pipx install dailycalc # only cli tool available
 ```
 
 import into your code
