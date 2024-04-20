@@ -27,7 +27,9 @@ install by pip
 
 ```bash
 pip install dailycalc
-# or
+```
+or
+```bash
 pipx install dailycalc # only cli tool available
 ```
 
@@ -81,8 +83,8 @@ for example:
 
 ## Support HEX, OCT, Scientific input
 
-1. `HEX`: `0x12E`, `0X12E` only support integar
-2. `OCT`: `0o123`, `0O123` only support integar
+1. `HEX`: `0x12E`, `0X12E` support only integar
+2. `OCT`: `0o123`, `0O123` support only integar
 3. Scientific Notation: `-123.12E-123` or `-123.12e+123`
 
 ## Error message with highlight
